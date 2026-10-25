@@ -1,0 +1,2747 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="description" content="중학교 과학 원형 도선과 코일(솔레노이드) 주위의 자기장 3D 입체 가상실험 웹앱">
+    <title>원형 도선과 코일(솔레노이드) 주위의 자기장 - 3D 가상실험</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background: linear-gradient(180deg, #cbeaff 0%, #e8f6ff 48%, #d6efc7 50%, #fbf4df 100%);
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #overlay-2d {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 25;
+            pointer-events: none;
+        }
+
+        /* 상단 바 */
+        #top-bar {
+            position: absolute;
+            top: 10px;
+            left: 12px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            flex-wrap: wrap;
+        }
+        #title-banner {
+            font-size: 21px;
+            font-weight: 900;
+            color: #0b2e8a;
+            text-shadow: 2px 2px 0px #ffffff, -1px -1px 0px #ffffff, 1px -1px 0px #ffffff, -1px 1px 0px #ffffff;
+            letter-spacing: -0.5px;
+            pointer-events: none;
+        }
+        #mode-badge {
+            background: #5b21b6;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 16px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+            pointer-events: none;
+        }
+        .top-btn {
+            background: rgba(255, 255, 255, 0.96);
+            color: #1e3a8a;
+            border: 1.5px solid #3b82f6;
+            border-radius: 16px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+            transition: all 0.15s;
+        }
+        .top-btn:hover {
+            background: #eff6ff;
+            transform: translateY(-1px);
+        }
+        .top-btn.active-toggle {
+            background: #1d4ed8;
+            color: #ffffff;
+            border-color: #1e40af;
+        }
+
+        /* 사용법 설명창 (닫기/열기 가능) */
+        #usage-box {
+            position: absolute;
+            top: 46px;
+            left: 12px;
+            z-index: 35;
+            background: rgba(255, 255, 255, 0.97);
+            padding: 10px 13px;
+            border-radius: 11px;
+            border: 2px solid #60a5fa;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+            font-size: 12px;
+            line-height: 1.55;
+            font-weight: 700;
+            color: #1e293b;
+            max-width: 355px;
+        }
+        #usage-box.closed {
+            display: none !important;
+        }
+        .usage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1.5px solid #e2e8f0;
+        }
+        .usage-title {
+            font-size: 13px;
+            font-weight: 900;
+            color: #1e3a8a;
+        }
+        #close-usage-btn {
+            background: #ef4444;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        #close-usage-btn:hover {
+            background: #dc2626;
+        }
+        .hl-blue { color: #1d4ed8; font-weight: 800; }
+        .hl-red { color: #dc2626; font-weight: 800; }
+
+        /* 우측 컨트롤 패널 (모든 구성 요소를 유지하면서 크기를 2/3 비율로 컴팩트하게 축소) */
+        #right-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 252px;
+            background: rgba(255, 255, 255, 0.96);
+            border: 1.5px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 7px 9px;
+            z-index: 20;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.14);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transition: transform 0.22s ease, opacity 0.22s ease;
+        }
+        #right-panel.collapsed {
+            transform: translateX(280px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* 1. 상단 회로도 카드 (미니 초록판 + 나침반 3개 + 스위치 + 건전지) */
+        #circuit-box {
+            width: 100%;
+            height: 116px;
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        /* 2. 코일 감은 수 카드 */
+        .coil-card {
+            background: #f5f3ff;
+            border: 1.5px solid #ddd6fe;
+            border-radius: 10px;
+            padding: 6px 8px;
+        }
+        .turn-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+        .turn-title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #1e293b;
+            line-height: 1.25;
+        }
+        .coil-turn-group {
+            display: flex;
+            gap: 4px;
+        }
+        .turn-btn {
+            width: 29px;
+            height: 26px;
+            font-size: 12px;
+            font-weight: 900;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 7px;
+            background: #ffffff;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .turn-btn:hover {
+            border-color: #7c3aed;
+            background: #ede9fe;
+        }
+        .turn-btn.active {
+            background: #6d28d9;
+            color: #ffffff;
+            border-color: #5b21b6;
+            box-shadow: 0 2px 5px rgba(109, 40, 217, 0.35);
+        }
+        #strength-text {
+            font-size: 10px;
+            font-weight: 800;
+            color: #5b21b6;
+            margin-top: 4px;
+            display: block;
+            letter-spacing: -0.2px;
+        }
+
+        /* 3. 표시 모양 선택 카드 */
+        .display-card {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 6px 8px;
+        }
+        .section-header {
+            font-size: 10.5px;
+            font-weight: 900;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+        .mode-tabs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .mode-tab-btn {
+            padding: 5px 3px;
+            font-size: 10.5px;
+            font-weight: 800;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 7px;
+            background: #ffffff;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            transition: all 0.12s;
+            white-space: nowrap;
+        }
+        .mode-tab-btn:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+        .mode-tab-btn.active {
+            background: #1d4ed8;
+            color: #ffffff;
+            border-color: #1e40af;
+            box-shadow: 0 2px 5px rgba(29, 78, 216, 0.25);
+        }
+
+        /* 자기력선 보기 세부 옵션: [코일 근처만 보기] / [주변까지 보기] */
+        #fieldline-sub-panel {
+            margin-top: 5px;
+            padding: 5px 6px;
+            background: #fef2f2;
+            border: 1.5px solid #fca5a5;
+            border-radius: 8px;
+            display: none;
+        }
+        #fieldline-sub-panel.visible {
+            display: block;
+        }
+        .sub-panel-title {
+            font-size: 10px;
+            font-weight: 900;
+            color: #991b1b;
+            margin-bottom: 4px;
+        }
+        .sub-btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+        .sub-line-btn {
+            padding: 5px 3px;
+            font-size: 10.5px;
+            font-weight: 900;
+            border: 1.5px solid #f87171;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #b91c1c;
+            cursor: pointer;
+            transition: all 0.12s;
+            white-space: nowrap;
+            text-align: center;
+        }
+        .sub-line-btn:hover {
+            background: #fee2e2;
+        }
+        .sub-line-btn.active {
+            background: #ef2323;
+            color: #ffffff;
+            border-color: #b91c1c;
+            box-shadow: 0 1px 4px rgba(239, 35, 35, 0.3);
+        }
+
+        /* 4. 오른손 법칙 체크 행 */
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 7px;
+            border-radius: 8px;
+            border: 1.5px solid #fcd34d;
+            background: #fffbeb;
+            font-size: 10.5px;
+            font-weight: 800;
+            color: #92400e;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .check-row input {
+            width: 13px;
+            height: 13px;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        /* 5. 자석으로 바꾸기 단독 버튼 */
+        #btn-toggle-magnet {
+            width: 100%;
+            padding: 6px 8px;
+            font-size: 11px;
+            font-weight: 900;
+            border-radius: 8px;
+            border: 1.5px solid #dc2626;
+            background: #ffffff;
+            color: #dc2626;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        #btn-toggle-magnet:hover {
+            background: #fef2f2;
+        }
+        #btn-toggle-magnet.magnet-active {
+            background: #dc2626;
+            color: #ffffff;
+            box-shadow: 0 2px 7px rgba(220, 38, 38, 0.3);
+        }
+
+        /* 하단 슬라이더 및 빠른 전환 바 */
+        #bottom-bar {
+            position: absolute;
+            bottom: 8px;
+            left: 12px;
+            right: 12px;
+            height: 38px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            pointer-events: none;
+            gap: 10px;
+        }
+        #slider-container {
+            width: 44%;
+            min-width: 170px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            pointer-events: auto;
+            background: rgba(255,255,255,0.88);
+            padding: 0 10px;
+            border-radius: 16px;
+            border: 1.5px solid #cbd5e1;
+        }
+        .slider-label {
+            font-size: 11px;
+            font-weight: 800;
+            color: #334155;
+            white-space: nowrap;
+        }
+        #azimuth-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: #cbd5e1;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        #azimuth-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2563eb;
+            border: 2px solid #ffffff;
+            cursor: grab;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.28);
+        }
+        #bottom-right-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: auto;
+        }
+        .quick-btn {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1.5px solid #334155;
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            color: #0f172a;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.14);
+            white-space: nowrap;
+        }
+        .quick-btn.active {
+            background: #dc2626;
+            color: #ffffff;
+            border-color: #991b1b;
+        }
+
+        @media (max-height: 640px) {
+            #right-panel {
+                transform: scale(0.9);
+                transform-origin: top right;
+            }
+            #right-panel.collapsed {
+                transform: translateX(280px) scale(0.9);
+            }
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <canvas id="overlay-2d"></canvas>
+
+    <!-- 상단 바 -->
+    <div id="top-bar">
+        <div id="title-banner">원형도선과 코일 주위 자기장</div>
+        <div id="mode-badge">원형 도선 (감은 수 0)</div>
+        <button id="toggle-usage-btn" class="top-btn">❓ 사용법 보기</button>
+        <button id="toggle-panel-btn" class="top-btn">패널 접기 ▸</button>
+    </div>
+
+    <!-- 닫기/열기 가능한 사용법 설명창 -->
+    <div id="usage-box" class="closed">
+        <div class="usage-header">
+            <span class="usage-title">💡 가상실험 사용법 안내</span>
+            <button id="close-usage-btn">✕ 닫기</button>
+        </div>
+        1. 우측 회로도의 <span class="hl-blue">스위치</span>를 클릭해 전류를 흘려보내고, <span class="hl-blue">건전지</span>를 클릭해 전류 방향(+/-)을 바꿔본다.<br>
+        2. <span class="hl-blue">초록색 판 위에서 마우스를 드래그하거나 휠을 굴리면</span> 오른쪽 <span class="hl-blue">눈 아이콘</span>(상하 시선)과 아래쪽 <span class="hl-blue">회전 바</span>(좌우 회전)가 연동되어 입체로 관찰된다.<br>
+        3. <span class="hl-red">[자기력선 보기]</span> 탭에서 <span class="hl-red">코일 근처만 보기</span>와 <span class="hl-red">주변까지 보기</span>(코일 내부 등간격 평행 자기력선 및 물결 중첩 고리)를 비교한다.<br>
+        4. <span class="hl-blue">[자석으로 바꾸기]</span>를 눌러 코일과 막대자석의 자기력선이 같음을 확인한다.
+    </div>
+
+    <!-- 우측 컨트롤 패널 -->
+    <div id="right-panel">
+        <!-- 1. 전류 회로도 및 미니 초록판 영역 -->
+        <div id="circuit-box"></div>
+
+        <!-- 2. 코일 감은 수 선택 카드 -->
+        <div class="coil-card">
+            <div class="turn-row">
+                <div class="turn-title">코일 감은 수<br>(넓은 간격)</div>
+                <div class="coil-turn-group">
+                    <button class="turn-btn active" data-turns="0">0</button>
+                    <button class="turn-btn" data-turns="1">1</button>
+                    <button class="turn-btn" data-turns="2">2</button>
+                    <button class="turn-btn" data-turns="3">3</button>
+                </div>
+            </div>
+            <span id="strength-text">코일 중심의 자기장 : 약 1.0 배 (감은 수 0 기준)</span>
+        </div>
+
+        <!-- 3. 표시 모양 4분할 탭 및 자기력선 범위 선택 카드 -->
+        <div class="display-card">
+            <div class="section-header">표시 모양 선택 (초록 평면 위에 표시)</div>
+            <div class="mode-tabs-grid">
+                <button class="mode-tab-btn active" data-mode="0">↗ 화살표 모양</button>
+                <button class="mode-tab-btn" data-mode="1">🧭 나침반 모양</button>
+                <button class="mode-tab-btn" data-mode="2">∷ 철가루 모양</button>
+                <button class="mode-tab-btn" data-mode="3">〰️ 자기력선 보기</button>
+            </div>
+
+            <!-- 자기력선 보기 전용 세부 옵션 -->
+            <div id="fieldline-sub-panel">
+                <div class="sub-panel-title">자기력선 표시 범위 (초록 평면 위)</div>
+                <div class="sub-btn-row">
+                    <button class="sub-line-btn" data-linemode="near" id="btn-line-near">코일 근처만 보기</button>
+                    <button class="sub-line-btn active" data-linemode="all" id="btn-line-wide">주변까지 보기</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. 오른손 법칙 체크박스 -->
+        <label class="check-row" id="row-right-hand">
+            <input type="checkbox" id="chk-right-hand">
+            <span>✋ 오른손 법칙 표시 (전류·자기장 방향)</span>
+        </label>
+
+        <!-- 5. 코일 <-> 막대자석 전환 버튼 -->
+        <button id="btn-toggle-magnet">🧲 자석으로 바꾸기</button>
+    </div>
+
+    <!-- 하단 컨트롤 바 -->
+    <div id="bottom-bar">
+        <div id="slider-container">
+            <span class="slider-label">🔄 평면 회전</span>
+            <input type="range" id="azimuth-slider" min="-85" max="85" value="0" step="1">
+        </div>
+        <div id="bottom-right-controls">
+            <button id="btn-quick-lines" class="quick-btn">〰️ 자기력선 보기</button>
+            <button id="btn-quick-mode" class="quick-btn">🧭 나침반 모양</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // ==========================================
+        // 1. 시뮬레이션 상태 정의
+        // ==========================================
+        const state = {
+            powerOn: true,
+            currentDir: 1,            // 1: 왼쪽(+) 올라감 -> 오른쪽(-) 내려감, -1: 반대
+            displayMode: 0,           // 0: 화살표, 1: 나침반, 2: 철가루, 3: 자기력선 보기
+            fieldLineSubMode: 'all',  // 'near' (코일 근처만 보기) | 'all' (주변까지 보기)
+            showRightHand: false,
+            coilTurns: 0,             // 0: 1가닥, 1: 2가닥, 2: 3가닥, 3: 4가닥
+            coilPitch: 5.4,           // 넓은 코일 간격
+            isMagnetMode: false,      // false: 코일 모드, true: 막대자석 모드
+            wireRadius: 4.1,          // 코일 내부 7가닥 등간격 평행 자기력선이 넉넉히 들어가는 반지름
+            wireCenterX: 0.0,
+            eyeElevationDeg: 36,
+            boardAzimuthDeg: 0,
+            eyeTrackRange: { topY: 58, bottomY: 220, x: 0 },
+            bigCompassPos: new THREE.Vector3(6.8, 0.14, 6.0)
+        };
+
+        // 사용법 창 및 우측 패널 접기/펼치기 제어
+        const usageBox = document.getElementById('usage-box');
+        const toggleUsageBtn = document.getElementById('toggle-usage-btn');
+        const closeUsageBtn = document.getElementById('close-usage-btn');
+        const rightPanel = document.getElementById('right-panel');
+        const togglePanelBtn = document.getElementById('toggle-panel-btn');
+
+        function setUsageOpen(open) {
+            if (open) {
+                usageBox.classList.remove('closed');
+                toggleUsageBtn.textContent = '❓ 사용법 닫기';
+                toggleUsageBtn.classList.add('active-toggle');
+            } else {
+                usageBox.classList.add('closed');
+                toggleUsageBtn.textContent = '❓ 사용법 보기';
+                toggleUsageBtn.classList.remove('active-toggle');
+            }
+        }
+
+        setUsageOpen(false);
+
+        toggleUsageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setUsageOpen(usageBox.classList.contains('closed'));
+        });
+        closeUsageBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setUsageOpen(false);
+        });
+
+        togglePanelBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const collapsed = rightPanel.classList.toggle('collapsed');
+            togglePanelBtn.textContent = collapsed ? '◂ 패널 펼치기' : '패널 접기 ▸';
+        });
+
+        // ==========================================
+        // 2. Three.js 씬, 카메라, 조명 설정
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+
+        const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = false;
+        container.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.92));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.78);
+        dirLight.position.set(12, 24, 18);
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0xfff5e6, 0.38);
+        fillLight.position.set(-12, -10, 14);
+        scene.add(fillLight);
+
+        const experimentRoot = new THREE.Group();
+        experimentRoot.position.set(-1.9, -0.2, 0);
+        scene.add(experimentRoot);
+
+        // ==========================================
+        // 3. 초록색 관찰 평면 (Board) 생성
+        // ==========================================
+        const BOARD_WIDTH = 22.0;
+        const BOARD_DEPTH = 25.5;
+        const boardGroup = new THREE.Group();
+        experimentRoot.add(boardGroup);
+
+        function createBoardTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512;
+            c.height = 512;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#5ce646';
+            ctx.fillRect(0, 0, 512, 512);
+
+            ctx.strokeStyle = 'rgba(0, 105, 0, 0.22)';
+            ctx.lineWidth = 2;
+            const step = 512 / 12;
+            for (let i = 1; i < 12; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * step, 0);
+                ctx.lineTo(i * step, 512);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, i * step);
+                ctx.lineTo(512, i * step);
+                ctx.stroke();
+            }
+            return new THREE.CanvasTexture(c);
+        }
+
+        const boardGeo = new THREE.BoxGeometry(BOARD_WIDTH, 0.16, BOARD_DEPTH);
+        const boardMat = new THREE.MeshBasicMaterial({
+            map: createBoardTexture(),
+            transparent: true,
+            opacity: 0.94
+        });
+        const boardMesh = new THREE.Mesh(boardGeo, boardMat);
+        boardGroup.add(boardMesh);
+
+        const boardEdges = new THREE.EdgesGeometry(boardGeo);
+        boardMesh.add(new THREE.LineSegments(boardEdges, new THREE.LineBasicMaterial({ color: 0x0f520f })));
+
+        // ==========================================
+        // 4. 코일 파라미터 및 도선·전류 화살표 (1:1 간격 & 초록판 아래 가시성 분리)
+        // ==========================================
+        const wireAssembly = new THREE.Group();
+        boardGroup.add(wireAssembly);
+
+        const aboveWireGroup = new THREE.Group();
+        const belowWireGroup = new THREE.Group();
+        wireAssembly.add(aboveWireGroup);
+        wireAssembly.add(belowWireGroup);
+
+        const leftHoleGroup = new THREE.Group();
+        const rightHoleGroup = new THREE.Group();
+        wireAssembly.add(leftHoleGroup);
+        wireAssembly.add(rightHoleGroup);
+
+        let extraHoleGroups = [];
+        const currentArrowsGroup = new THREE.Group();
+        const aboveBoardArrowsGroup = new THREE.Group();
+        const belowBoardArrowsGroup = new THREE.Group();
+        currentArrowsGroup.add(aboveBoardArrowsGroup);
+        currentArrowsGroup.add(belowBoardArrowsGroup);
+        wireAssembly.add(currentArrowsGroup);
+
+        function createHoleMarker(isDraggableLeft) {
+            const g = new THREE.Group();
+            const ringGeo = new THREE.RingGeometry(0.36, 0.56, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide }));
+
+            const innerGeo = new THREE.CircleGeometry(0.36, 32);
+            innerGeo.rotateX(-Math.PI / 2);
+            const inner = new THREE.Mesh(innerGeo, new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.DoubleSide }));
+            inner.position.y = -0.002;
+            g.add(ring);
+            g.add(inner);
+
+            if (isDraggableLeft) {
+                const dragHighlightGeo = new THREE.RingGeometry(0.56, 0.68, 32);
+                dragHighlightGeo.rotateX(-Math.PI / 2);
+                const highlight = new THREE.Mesh(dragHighlightGeo, new THREE.MeshBasicMaterial({
+                    color: 0x2563eb,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.65
+                }));
+                g.add(highlight);
+            }
+            return g;
+        }
+
+        leftHoleGroup.add(createHoleMarker(true));
+        rightHoleGroup.add(createHoleMarker(false));
+
+        function getCoilLoopsParameters() {
+            const R = state.wireRadius;
+            const cx = state.wireCenterX;
+            const numLoops = state.coilTurns + 1;
+            const pitch = numLoops === 1 ? 0 : state.coilPitch;
+            const startZ = -((numLoops - 1) * pitch) / 2;
+            return { R, cx, numLoops, pitch, startZ };
+        }
+
+        function getCoilLoopHoles() {
+            const { R, cx, numLoops, pitch, startZ } = getCoilLoopsParameters();
+            const loops = [];
+            for (let k = 0; k < numLoops; k++) {
+                const zLoop = numLoops === 1 ? 0 : (startZ + k * pitch);
+                loops.push({
+                    xLeft: cx - R,
+                    zLeft: zLoop,
+                    xRight: cx + R,
+                    zRight: zLoop,
+                    zMid: zLoop
+                });
+            }
+            return loops;
+        }
+
+        class UpperArchCurve extends THREE.Curve {
+            constructor(radius, zPos) {
+                super();
+                this.R = radius;
+                this.zPos = zPos;
+            }
+            getPoint(t, optionalTarget = new THREE.Vector3()) {
+                const angle = Math.PI * (1 - t);
+                return optionalTarget.set(
+                    this.R * Math.cos(angle),
+                    this.R * Math.sin(angle),
+                    this.zPos
+                );
+            }
+        }
+
+        class UnderConnectorCurve extends THREE.Curve {
+            constructor(x1, z1, x2, z2, depthY = -2.8) {
+                super();
+                this.p0 = new THREE.Vector3(x1, 0, z1);
+                this.p1 = new THREE.Vector3(x1 * 0.65, depthY, z1 + (z2 - z1) * 0.25);
+                this.p2 = new THREE.Vector3(0, depthY * 1.12, (z1 + z2) * 0.5);
+                this.p3 = new THREE.Vector3(x2 * 0.65, depthY, z1 + (z2 - z1) * 0.75);
+                this.p4 = new THREE.Vector3(x2, 0, z2);
+                this.spline = new THREE.CatmullRomCurve3([this.p0, this.p1, this.p2, this.p3, this.p4]);
+            }
+            getPoint(t, optionalTarget = new THREE.Vector3()) {
+                return this.spline.getPoint(t, optionalTarget);
+            }
+        }
+
+        let upperArchCurves = [];
+        let underCurves = [];
+
+        // 전선 내부의 선명한 노란색 전류 화살표 (1:1 간격, renderOrder: 95~96, depthTest: false)
+        function addBrightYellowArrowsAlongCurve(targetGroup, curve, arrowCount, dirSign) {
+            const shaftMat = new THREE.MeshBasicMaterial({
+                color: 0xffee00,
+                transparent: true,
+                opacity: 1.0,
+                depthTest: false,
+                depthWrite: false
+            });
+            const headMat = new THREE.MeshBasicMaterial({
+                color: 0xffff00,
+                transparent: true,
+                opacity: 1.0,
+                depthTest: false,
+                depthWrite: false
+            });
+            const outlineMat = new THREE.MeshBasicMaterial({
+                color: 0x1a0d00,
+                side: THREE.BackSide,
+                transparent: true,
+                opacity: 1.0,
+                depthTest: false,
+                depthWrite: false
+            });
+
+            // 1:1 비율 (화살표 전체 길이 = 빈 간격 길이 = slotSpan * 0.50)
+            const slotSpan = 1.0 / arrowCount;
+            const totalArrowSpan = slotSpan * 0.50;
+            const shaftSpan = totalArrowSpan * 0.66;
+            const shaftRadius = 0.14;
+            const headRadius = 0.30;
+            const headLength = 0.50;
+
+            for (let i = 0; i < arrowCount; i++) {
+                const uCenter = (i + 0.5) / arrowCount;
+                const uTail = Math.max(0.02, Math.min(0.98, uCenter - dirSign * (totalArrowSpan * 0.5)));
+                const uShaftEnd = Math.max(0.02, Math.min(0.98, uTail + dirSign * shaftSpan));
+
+                const sampleCount = 10;
+                const curvePoints = [];
+                for (let s = 0; s <= sampleCount; s++) {
+                    const uSample = uTail + (uShaftEnd - uTail) * (s / sampleCount);
+                    curvePoints.push(curve.getPointAt(uSample));
+                }
+
+                const arrowCurve = new THREE.CatmullRomCurve3(curvePoints);
+
+                const shaftOutlineGeo = new THREE.TubeGeometry(arrowCurve, 10, shaftRadius + 0.045, 12, false);
+                const shaftOutlineMesh = new THREE.Mesh(shaftOutlineGeo, outlineMat);
+                shaftOutlineMesh.renderOrder = 95;
+                targetGroup.add(shaftOutlineMesh);
+
+                const shaftGeo = new THREE.TubeGeometry(arrowCurve, 10, shaftRadius, 12, false);
+                const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+                shaftMesh.renderOrder = 96;
+                targetGroup.add(shaftMesh);
+
+                const endPos = curve.getPointAt(uShaftEnd);
+                const endDir = curve.getTangentAt(uShaftEnd).multiplyScalar(dirSign).normalize();
+
+                const headGroup = new THREE.Group();
+
+                const coneOutlineGeo = new THREE.ConeGeometry(headRadius + 0.05, headLength + 0.08, 16);
+                coneOutlineGeo.translate(0, (headLength + 0.08) * 0.46, 0);
+                const coneOutlineMesh = new THREE.Mesh(coneOutlineGeo, outlineMat);
+                coneOutlineMesh.renderOrder = 95;
+                headGroup.add(coneOutlineMesh);
+
+                const coneGeo = new THREE.ConeGeometry(headRadius, headLength, 16);
+                coneGeo.translate(0, headLength * 0.5, 0);
+                const coneMesh = new THREE.Mesh(coneGeo, headMat);
+                coneMesh.renderOrder = 96;
+                headGroup.add(coneMesh);
+
+                headGroup.position.copy(endPos);
+                headGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), endDir);
+                targetGroup.add(headGroup);
+            }
+        }
+
+        function rebuildCurrentArrows() {
+            while (aboveBoardArrowsGroup.children.length > 0) {
+                aboveBoardArrowsGroup.remove(aboveBoardArrowsGroup.children[0]);
+            }
+            while (belowBoardArrowsGroup.children.length > 0) {
+                belowBoardArrowsGroup.remove(belowBoardArrowsGroup.children[0]);
+            }
+
+            if (!state.powerOn || state.isMagnetMode) return;
+
+            const { cx } = getCoilLoopsParameters();
+
+            upperArchCurves.forEach(archCurve => {
+                addBrightYellowArrowsAlongCurve(aboveBoardArrowsGroup, archCurve, 6, state.currentDir);
+            });
+
+            underCurves.forEach(uItem => {
+                addBrightYellowArrowsAlongCurve(belowBoardArrowsGroup, uItem.curve, uItem.arrows, state.currentDir);
+            });
+
+            currentArrowsGroup.position.x = cx;
+            belowBoardArrowsGroup.visible = (state.eyeElevationDeg < 0);
+        }
+
+        function rebuildWireGeometry() {
+            while (aboveWireGroup.children.length > 0) {
+                const m = aboveWireGroup.children[0];
+                aboveWireGroup.remove(m);
+                if (m.geometry) m.geometry.dispose();
+            }
+            while (belowWireGroup.children.length > 0) {
+                const m = belowWireGroup.children[0];
+                belowWireGroup.remove(m);
+                if (m.geometry) m.geometry.dispose();
+            }
+            extraHoleGroups.forEach(g => wireAssembly.remove(g));
+            extraHoleGroups = [];
+
+            const { R, cx, numLoops } = getCoilLoopsParameters();
+            const loopHoles = getCoilLoopHoles();
+
+            upperArchCurves = [];
+            underCurves = [];
+
+            const wireRadiusThick = numLoops === 1 ? 0.35 : 0.32;
+            const wireColor = numLoops === 1 ? 0x222222 : 0x7c3f1d;
+            const wireMat = new THREE.MeshStandardMaterial({
+                color: wireColor,
+                roughness: 0.45,
+                metalness: 0.15,
+                transparent: true,
+                opacity: 0.56,
+                depthWrite: false
+            });
+
+            for (let k = 0; k < loopHoles.length; k++) {
+                const zLoop = loopHoles[k].zMid;
+                const archCurve = new UpperArchCurve(R, zLoop);
+                upperArchCurves.push(archCurve);
+
+                const archGeo = new THREE.TubeGeometry(archCurve, 64, wireRadiusThick, 20, false);
+                const archMesh = new THREE.Mesh(archGeo, wireMat);
+                archMesh.renderOrder = 10;
+                aboveWireGroup.add(archMesh);
+            }
+
+            if (loopHoles.length > 0) {
+                const firstZ = loopHoles[0].zLeft;
+                const lastZ = loopHoles[loopHoles.length - 1].zRight;
+
+                const leftLeadCurve = new THREE.LineCurve3(
+                    new THREE.Vector3(-R, -3.5, firstZ),
+                    new THREE.Vector3(-R, 0.0, firstZ)
+                );
+                underCurves.push({ curve: leftLeadCurve, arrows: 2 });
+                const leftLeadMesh = new THREE.Mesh(
+                    new THREE.TubeGeometry(leftLeadCurve, 16, wireRadiusThick, 16, false),
+                    wireMat
+                );
+                leftLeadMesh.renderOrder = 10;
+                belowWireGroup.add(leftLeadMesh);
+
+                for (let k = 0; k < loopHoles.length - 1; k++) {
+                    const zCurr = loopHoles[k].zRight;
+                    const zNext = loopHoles[k + 1].zLeft;
+                    const connCurve = new UnderConnectorCurve(R, zCurr, -R, zNext, -2.6);
+                    underCurves.push({ curve: connCurve, arrows: 4 });
+                    const connMesh = new THREE.Mesh(
+                        new THREE.TubeGeometry(connCurve, 40, wireRadiusThick, 16, false),
+                        wireMat
+                    );
+                    connMesh.renderOrder = 10;
+                    belowWireGroup.add(connMesh);
+                }
+
+                const rightLeadCurve = new THREE.LineCurve3(
+                    new THREE.Vector3(R, 0.0, lastZ),
+                    new THREE.Vector3(R, -3.5, lastZ)
+                );
+                underCurves.push({ curve: rightLeadCurve, arrows: 2 });
+                const rightLeadMesh = new THREE.Mesh(
+                    new THREE.TubeGeometry(rightLeadCurve, 16, wireRadiusThick, 16, false),
+                    wireMat
+                );
+                rightLeadMesh.renderOrder = 10;
+                belowWireGroup.add(rightLeadMesh);
+            }
+
+            aboveWireGroup.position.x = cx;
+            belowWireGroup.position.x = cx;
+            aboveWireGroup.visible = !state.isMagnetMode;
+            belowWireGroup.visible = (!state.isMagnetMode) && (state.eyeElevationDeg < 0);
+
+            leftHoleGroup.visible = !state.isMagnetMode;
+            rightHoleGroup.visible = !state.isMagnetMode;
+
+            if (loopHoles.length > 0) {
+                leftHoleGroup.position.set(loopHoles[0].xLeft, 0.09, loopHoles[0].zLeft);
+                const lastLoop = loopHoles[loopHoles.length - 1];
+                rightHoleGroup.position.set(lastLoop.xRight, 0.09, lastLoop.zRight);
+
+                for (let k = 0; k < loopHoles.length; k++) {
+                    const lh = loopHoles[k];
+                    if (k > 0) {
+                        const hl = createHoleMarker(false);
+                        hl.position.set(lh.xLeft, 0.09, lh.zLeft);
+                        hl.visible = !state.isMagnetMode;
+                        wireAssembly.add(hl);
+                        extraHoleGroups.push(hl);
+                    }
+                    if (k < loopHoles.length - 1) {
+                        const hr = createHoleMarker(false);
+                        hr.position.set(lh.xRight, 0.09, lh.zRight);
+                        hr.visible = !state.isMagnetMode;
+                        wireAssembly.add(hr);
+                        extraHoleGroups.push(hr);
+                    }
+                }
+            }
+
+            rebuildCurrentArrows();
+            updateHandsTransform();
+            updateBarMagnetMesh();
+            rebuildFieldGridPositions();
+            rebuildContinuousFieldLines();
+        }
+
+        // ==========================================
+        // 5. 3D 막대자석 (Bar Magnet) 생성 및 코일 크기 연동
+        // ==========================================
+        const barMagnetGroup = new THREE.Group();
+        boardGroup.add(barMagnetGroup);
+
+        function createPoleLabelTexture(letter, bgColor) {
+            const c = document.createElement('canvas');
+            c.width = 256;
+            c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, 256, 256);
+
+            ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(5, 5, 246, 246);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 150px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(letter, 128, 132);
+            return new THREE.CanvasTexture(c);
+        }
+
+        const nTex = createPoleLabelTexture('N', '#ef2323');
+        const sTex = createPoleLabelTexture('S', '#2589f5');
+
+        function buildBarMagnet() {
+            while (barMagnetGroup.children.length > 0) {
+                barMagnetGroup.remove(barMagnetGroup.children[0]);
+            }
+
+            const magWidth = 2.6;
+            const magHeight = 1.35;
+            const unitLen = 1.0;
+
+            const nBoxGeo = new THREE.BoxGeometry(magWidth, magHeight, unitLen);
+            const nMaterials = [
+                new THREE.MeshBasicMaterial({ color: 0xd91b1b }),
+                new THREE.MeshBasicMaterial({ color: 0xd91b1b }),
+                new THREE.MeshBasicMaterial({ map: nTex }),
+                new THREE.MeshBasicMaterial({ map: nTex }),
+                new THREE.MeshBasicMaterial({ color: 0xef2323 }),
+                new THREE.MeshBasicMaterial({ color: 0xb91c1c })
+            ];
+            const nMesh = new THREE.Mesh(nBoxGeo, nMaterials);
+            nMesh.name = 'poleN';
+
+            const sBoxGeo = new THREE.BoxGeometry(magWidth, magHeight, unitLen);
+            const sMaterials = [
+                new THREE.MeshBasicMaterial({ color: 0x1d70d6 }),
+                new THREE.MeshBasicMaterial({ color: 0x1d70d6 }),
+                new THREE.MeshBasicMaterial({ map: sTex }),
+                new THREE.MeshBasicMaterial({ map: sTex }),
+                new THREE.MeshBasicMaterial({ color: 0x2589f5 }),
+                new THREE.MeshBasicMaterial({ color: 0x1e40af })
+            ];
+            const sMesh = new THREE.Mesh(sBoxGeo, sMaterials);
+            sMesh.name = 'poleS';
+
+            nMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(nBoxGeo), new THREE.LineBasicMaterial({ color: 0x450a0a })));
+            sMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(sBoxGeo), new THREE.LineBasicMaterial({ color: 0x172554 })));
+
+            barMagnetGroup.add(nMesh);
+            barMagnetGroup.add(sMesh);
+            barMagnetGroup.position.set(state.wireCenterX, 0.25, 0);
+        }
+        buildBarMagnet();
+
+        function updateBarMagnetMesh() {
+            barMagnetGroup.visible = state.isMagnetMode;
+            if (!state.isMagnetMode) return;
+
+            const { cx, numLoops, pitch } = getCoilLoopsParameters();
+            const coilSpanZ = (numLoops - 1) * pitch;
+            const totalMagLen = Math.max(4.4, coilSpanZ + 2.6);
+            const halfLen = totalMagLen * 0.5;
+            const quarterLen = totalMagLen * 0.25;
+
+            barMagnetGroup.position.x = cx;
+            const nMesh = barMagnetGroup.getObjectByName('poleN');
+            const sMesh = barMagnetGroup.getObjectByName('poleS');
+
+            nMesh.scale.set(1, 1, halfLen);
+            sMesh.scale.set(1, 1, halfLen);
+
+            if (state.currentDir === 1) {
+                nMesh.position.set(0, 0, -quarterLen);
+                sMesh.position.set(0, 0, quarterLen);
+            } else {
+                nMesh.position.set(0, 0, quarterLen);
+                sMesh.position.set(0, 0, -quarterLen);
+            }
+        }
+
+        // ==========================================
+        // 6. 초록 평면(XZ 수평면) 위 자기장 물리 벡터 계산
+        // ==========================================
+        function computeMagneticFieldVector2D(x, z) {
+            if (!state.powerOn && !state.isMagnetMode) {
+                return new THREE.Vector2(0, -1);
+            }
+
+            const { cx, numLoops, pitch } = getCoilLoopsParameters();
+            let bx = 0;
+            let bz = 0;
+
+            if (state.isMagnetMode) {
+                const coilSpanZ = (numLoops - 1) * pitch;
+                const poleDist = Math.max(2.2, coilSpanZ * 0.5 + 1.2);
+                const zN = state.currentDir === 1 ? -poleDist : poleDist;
+                const zS = -zN;
+
+                if (Math.abs(x - cx) < 1.35 && Math.abs(z) < poleDist) {
+                    return new THREE.Vector2(0, state.currentDir === 1 ? -1 : 1);
+                }
+
+                const dxN = x - cx;
+                const dzN = z - zN;
+                const rN2 = Math.max(0.55, dxN * dxN + dzN * dzN);
+                const rN = Math.sqrt(rN2);
+
+                const dxS = x - cx;
+                const dzS = z - zS;
+                const rS2 = Math.max(0.55, dxS * dxS + dzS * dzS);
+                const rS = Math.sqrt(rS2);
+
+                bx = (dxN / (rN2 * rN)) - (dxS / (rS2 * rS));
+                bz = (dzN / (rN2 * rN)) - (dzS / (rS2 * rS));
+            } else {
+                const loopHoles = getCoilLoopHoles();
+                for (let k = 0; k < loopHoles.length; k++) {
+                    const lh = loopHoles[k];
+
+                    const dx1 = x - lh.xLeft;
+                    const dz1 = z - lh.zLeft;
+                    const r1Sq = Math.max(0.16, dx1 * dx1 + dz1 * dz1);
+
+                    const dx2 = x - lh.xRight;
+                    const dz2 = z - lh.zRight;
+                    const r2Sq = Math.max(0.16, dx2 * dx2 + dz2 * dz2);
+
+                    const b1x = (state.currentDir * dz1) / r1Sq;
+                    const b1z = (-state.currentDir * dx1) / r1Sq;
+
+                    const b2x = (-state.currentDir * dz2) / r2Sq;
+                    const b2z = (state.currentDir * dx2) / r2Sq;
+
+                    bx += (b1x + b2x);
+                    bz += (b1z + b2z);
+                }
+            }
+
+            const v = new THREE.Vector2(bx, bz);
+            if (v.lengthSq() < 1e-8) return new THREE.Vector2(0, -1);
+            return v.normalize();
+        }
+
+        // ==========================================
+        // 7. 겹치거나 끊기지 않는 깔끔한 빨간색 통합 자기력선
+        //    - 코일 내부 폭 전체에 걸친 7가닥 등간격 평행 자기력선 (중앙 3가닥 부채꼴 방사 + 좌우 각 2가닥 외곽 폐곡선 + 3번째 물결 중첩 루프)
+        // ==========================================
+        const fieldLinesGroup = new THREE.Group();
+        fieldLinesGroup.position.y = 0.13;
+        boardGroup.add(fieldLinesGroup);
+
+        const nearFieldLinesGroup = new THREE.Group();
+        const wideFieldLinesGroup = new THREE.Group();
+        fieldLinesGroup.add(nearFieldLinesGroup);
+        fieldLinesGroup.add(wideFieldLinesGroup);
+
+        const UNIFIED_RED_LINE_MAT = new THREE.MeshBasicMaterial({
+            color: 0xef2323,
+            transparent: true,
+            opacity: 0.96
+        });
+
+        function createRedLineArrowHead(dirVec3, scale = 1.0) {
+            const g = new THREE.Group();
+            const coneGeo = new THREE.ConeGeometry(0.22 * scale, 0.46 * scale, 14);
+            coneGeo.rotateX(Math.PI / 2);
+            coneGeo.scale(1.0, 0.42, 1.0);
+            const coneMesh = new THREE.Mesh(coneGeo, new THREE.MeshBasicMaterial({ color: 0xe11d1d }));
+            g.add(coneMesh);
+
+            const outGeo = new THREE.ConeGeometry(0.25 * scale, 0.50 * scale, 14);
+            outGeo.rotateX(Math.PI / 2);
+            outGeo.scale(1.0, 0.38, 1.0);
+            const outMesh = new THREE.Mesh(outGeo, new THREE.MeshBasicMaterial({ color: 0x7f1d1d, side: THREE.BackSide }));
+            g.add(outMesh);
+
+            g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirVec3.clone().normalize());
+            return g;
+        }
+
+        function addCleanRedCurveToGroup(targetGroup, points, isClosed, arrowPositionsU, reverseDir = false, tubeRadius = 0.048, arrowScale = 0.92) {
+            if (points.length < 3) return;
+            const curve = new THREE.CatmullRomCurve3(points, isClosed);
+            const totalLen = curve.getLength();
+            if (totalLen < 0.6) return;
+
+            const segs = Math.min(220, Math.max(48, Math.floor(totalLen * 7)));
+            const tubeGeo = new THREE.TubeGeometry(curve, segs, tubeRadius, 8, isClosed);
+            tubeGeo.scale(1.0, 0.35, 1.0);
+            targetGroup.add(new THREE.Mesh(tubeGeo, UNIFIED_RED_LINE_MAT));
+
+            arrowPositionsU.forEach(u => {
+                const wrappedU = ((u % 1.0) + 1.0) % 1.0;
+                const clampedU = isClosed ? wrappedU : Math.max(0.02, Math.min(0.98, wrappedU));
+                const pt = curve.getPointAt(clampedU);
+                const tan = curve.getTangentAt(clampedU).normalize();
+                if (reverseDir) tan.negate();
+
+                const arr = createRedLineArrowHead(tan, arrowScale);
+                arr.position.copy(pt);
+                targetGroup.add(arr);
+            });
+        }
+
+        function generateNonOverlappingLoopPoints(xHole, signX, zFirst, zLast, numIntervals, dOutBase, dInBase, zCapRadius, waveAmpOut = 0, waveAmpIn = 0) {
+            const pts = [];
+            const spanZ = zLast - zFirst;
+            const rOutEnd = dOutBase + waveAmpOut;
+            const rInEnd = dInBase + waveAmpIn;
+            const xCapCenter = xHole + signX * 0.5 * (rOutEnd - rInEnd);
+            const halfWidthCap = 0.5 * (rOutEnd + rInEnd);
+
+            const straightSteps = Math.max(24, numIntervals * 24);
+            if (spanZ > 0.01) {
+                for (let i = 0; i <= straightSteps; i++) {
+                    const t = i / straightSteps;
+                    const z = zFirst + t * spanZ;
+                    const wave = numIntervals > 0 ? Math.cos(t * numIntervals * Math.PI * 2) : 1.0;
+                    const dOut = dOutBase + waveAmpOut * wave;
+                    const x = xHole + signX * dOut;
+                    pts.push(new THREE.Vector3(x, 0.018, z));
+                }
+            } else {
+                pts.push(new THREE.Vector3(xHole + signX * rOutEnd, 0.018, zFirst));
+            }
+
+            const capSteps = 28;
+            for (let i = 1; i < capSteps; i++) {
+                const theta = (i / capSteps) * Math.PI;
+                const x = xCapCenter + signX * halfWidthCap * Math.cos(theta);
+                const z = zLast + zCapRadius * Math.sin(theta);
+                pts.push(new THREE.Vector3(x, 0.018, z));
+            }
+
+            if (spanZ > 0.01) {
+                for (let i = 0; i <= straightSteps; i++) {
+                    const t = 1.0 - (i / straightSteps);
+                    const z = zFirst + t * spanZ;
+                    const wave = numIntervals > 0 ? Math.cos(t * numIntervals * Math.PI * 2) : 1.0;
+                    const dIn = dInBase + waveAmpIn * wave;
+                    const x = xHole - signX * dIn;
+                    pts.push(new THREE.Vector3(x, 0.018, z));
+                }
+            } else {
+                pts.push(new THREE.Vector3(xHole - signX * rInEnd, 0.018, zFirst));
+            }
+
+            for (let i = 1; i < capSteps; i++) {
+                const theta = Math.PI + (i / capSteps) * Math.PI;
+                const x = xCapCenter + signX * halfWidthCap * Math.cos(theta);
+                const z = zFirst + zCapRadius * Math.sin(theta);
+                pts.push(new THREE.Vector3(x, 0.018, z));
+            }
+
+            return pts;
+        }
+
+        function updateFieldLineSubGroupsVisibility() {
+            nearFieldLinesGroup.visible = true;
+            wideFieldLinesGroup.visible = (state.fieldLineSubMode === 'all');
+        }
+
+        function rebuildContinuousFieldLines() {
+            while (nearFieldLinesGroup.children.length > 0) {
+                nearFieldLinesGroup.remove(nearFieldLinesGroup.children[0]);
+            }
+            while (wideFieldLinesGroup.children.length > 0) {
+                wideFieldLinesGroup.remove(wideFieldLinesGroup.children[0]);
+            }
+
+            if (state.displayMode !== 3) return;
+            if (!state.powerOn && !state.isMagnetMode) return;
+
+            const { R, cx, numLoops } = getCoilLoopsParameters();
+            const loopHoles = getCoilLoopHoles();
+            const dirSign = state.currentDir;
+
+            const zFirst = loopHoles[0].zMid;
+            const zLast = loopHoles[loopHoles.length - 1].zMid;
+            const numIntervals = numLoops - 1;
+
+            // 1. [코일 근처만 보기] (`near`): 각 도선 구멍 주위에 중첩되지 않은 2개의 동심원 자기력선 (r = 0.78, 1.14)
+            if (!state.isMagnetMode) {
+                const nearRadii = [0.78, 1.14];
+                for (let k = 0; k < loopHoles.length; k++) {
+                    const lh = loopHoles[k];
+                    const holeSides = [
+                        { x: lh.xLeft, z: lh.zLeft, ccw: dirSign === 1 },
+                        { x: lh.xRight, z: lh.zRight, ccw: dirSign !== 1 }
+                    ];
+
+                    holeSides.forEach(h => {
+                        nearRadii.forEach((rad) => {
+                            const pts = [];
+                            const segs = 48;
+                            for (let s = 0; s < segs; s++) {
+                                const ang = (s / segs) * Math.PI * 2;
+                                pts.push(new THREE.Vector3(
+                                    h.x + rad * Math.cos(ang),
+                                    0.016,
+                                    h.z + rad * Math.sin(ang)
+                                ));
+                            }
+                            addCleanRedCurveToGroup(
+                                nearFieldLinesGroup,
+                                pts,
+                                true,
+                                [0.0, 0.5],
+                                h.ccw,
+                                0.045,
+                                0.84
+                            );
+                        });
+                    });
+                }
+            } else {
+                const sidesConfig = [
+                    { xHole: cx - R, signX: -1 },
+                    { xHole: cx + R, signX: 1 }
+                ];
+                const reverseLoop = (dirSign === -1);
+                sidesConfig.forEach(side => {
+                    const dInNear = Math.max(1.30, R - 2.68);
+                    const nearMagPts = generateNonOverlappingLoopPoints(
+                        side.xHole, side.signX, zFirst, zLast, 0,
+                        1.52, dInNear, 1.65, 0, 0
+                    );
+                    addCleanRedCurveToGroup(
+                        nearFieldLinesGroup,
+                        nearMagPts,
+                        true,
+                        [0.14, 0.30, 0.64, 0.80],
+                        reverseLoop,
+                        0.048,
+                        0.90
+                    );
+                });
+            }
+
+            // 2. [주변까지 보기] (`all`):
+            //    코일 내부 폭 전체에 걸쳐 7가닥의 자기력선이 일정한 간격으로 나란히 평행하게 통과:
+            //    x = 0, ±0.78 (중앙 3가닥 부채꼴 방사), ±1.48, ±2.08 (좌우 외곽 폐곡선), ±2.68 (3번째 물결 중첩 루프)
+            const sidesConfig = [
+                { xHole: cx - R, signX: -1 },
+                { xHole: cx + R, signX: 1 }
+            ];
+            const reverseLoop = (dirSign === -1);
+
+            const dInLoop3 = Math.max(1.28, R - 2.68);
+            const dInLoop4 = Math.max(1.75, R - 2.08);
+            const dInLoop5 = Math.max(2.25, R - 1.48);
+
+            sidesConfig.forEach(side => {
+                // ① 3번째 고리: 이웃 코일과 만나 물결 모양으로 오르내리며 감싸는 중첩 고리
+                if (!state.isMagnetMode) {
+                    const wavyThirdLoopPts = generateNonOverlappingLoopPoints(
+                        side.xHole,
+                        side.signX,
+                        zFirst,
+                        zLast,
+                        numIntervals,
+                        1.48,
+                        dInLoop3,
+                        1.68,
+                        numIntervals > 0 ? 0.16 : 0.0,
+                        numIntervals > 0 ? 0.08 : 0.0
+                    );
+                    addCleanRedCurveToGroup(
+                        wideFieldLinesGroup,
+                        wavyThirdLoopPts,
+                        true,
+                        numIntervals > 0 ? [0.14, 0.30, 0.64, 0.80] : [0.0, 0.25, 0.5, 0.75],
+                        reverseLoop,
+                        0.050,
+                        0.92
+                    );
+                }
+
+                // ② 좌우 각 2가닥 외곽 폐곡선 루프 (xIn = 2.08, 1.48 / xOut = R + 3.25, R + 4.55)
+                // 코일 모드와 자석 모드에서 100% 동일한 위치와 모양을 유지!
+                const sharedOuterSpecs = [
+                    { dOut: 3.25, dIn: dInLoop4, zCap: 2.65, arrows: [0.13, 0.31, 0.63, 0.81] },
+                    { dOut: 4.55, dIn: dInLoop5, zCap: 3.70, arrows: [0.11, 0.22, 0.33, 0.61, 0.72, 0.83] }
+                ];
+
+                sharedOuterSpecs.forEach(spec => {
+                    const outerPts = generateNonOverlappingLoopPoints(
+                        side.xHole,
+                        side.signX,
+                        zFirst,
+                        zLast,
+                        0,
+                        spec.dOut,
+                        spec.dIn,
+                        spec.zCap,
+                        0,
+                        0
+                    );
+                    addCleanRedCurveToGroup(
+                        wideFieldLinesGroup,
+                        outerPts,
+                        true,
+                        spec.arrows,
+                        reverseLoop,
+                        0.050,
+                        0.94
+                    );
+                });
+            });
+
+            // ③ 중앙 3가닥 (xOffset = 0, -0.78, +0.78):
+            // 코일(또는 막대자석) 내부를 등간격 평행 직선으로 통과한 뒤 양 끝 바깥에서 부드럽게 부채꼴(나팔 모양)로 퍼져 나감
+            const zEdge = BOARD_DEPTH / 2 - 0.55;
+            const centerAxisPts = [
+                new THREE.Vector3(cx, 0.02, zEdge * dirSign),
+                new THREE.Vector3(cx, 0.02, 0),
+                new THREE.Vector3(cx, 0.02, -zEdge * dirSign)
+            ];
+            addCleanRedCurveToGroup(
+                wideFieldLinesGroup,
+                centerAxisPts,
+                false,
+                [0.16, 0.50, 0.84],
+                false,
+                0.054,
+                0.98
+            );
+
+            const dCore = Math.min(0.78, Math.max(0.45, (R - dInLoop5) * 0.52));
+            const flareStartZ = Math.max(1.4, zLast + 0.55);
+            [-1, 1].forEach(sideSign => {
+                const sideCorePts = [];
+                const numSteps = 64;
+                for (let i = 0; i <= numSteps; i++) {
+                    const u = i / numSteps;
+                    const z = (zEdge - 2 * zEdge * u) * dirSign;
+                    const absZ = Math.abs(z);
+                    let offsetX = dCore;
+                    if (absZ > flareStartZ) {
+                        const t = (absZ - flareStartZ) / Math.max(0.5, zEdge - flareStartZ);
+                        // 코일 양 끝을 빠져나온 뒤 바깥쪽으로 넓고 우아하게 휘어지는 부채꼴 곡선
+                        offsetX = dCore + 2.35 * Math.pow(t, 1.85);
+                    }
+                    sideCorePts.push(new THREE.Vector3(cx + sideSign * offsetX, 0.02, z));
+                }
+                addCleanRedCurveToGroup(
+                    wideFieldLinesGroup,
+                    sideCorePts,
+                    false,
+                    [0.14, 0.50, 0.86],
+                    false,
+                    0.050,
+                    0.94
+                );
+            });
+
+            updateFieldLineSubGroupsVisibility();
+        }
+
+        // ==========================================
+        // 8. 초록 평면 위 격자 화살표 / 나침반 / 철가루
+        // ==========================================
+        const fieldIndicatorsGroup = new THREE.Group();
+        fieldIndicatorsGroup.position.y = 0.11;
+        boardGroup.add(fieldIndicatorsGroup);
+
+        const indicatorItems = [];
+
+        function createDiamondNeedleMesh(scale = 1) {
+            const group = new THREE.Group();
+            const halfLen = 0.50 * scale;
+            const halfWid = 0.20 * scale;
+            const thick = 0.055 * scale;
+
+            const nGeo = new THREE.BufferGeometry();
+            const nVerts = new Float32Array([
+                0, thick, halfLen,  -halfWid, thick, 0,  halfWid, thick, 0,
+                0, 0, halfLen,       halfWid, 0, 0,     -halfWid, 0, 0,
+                0, thick, halfLen,   0, 0, halfLen,     -halfWid, thick, 0,
+                -halfWid, thick, 0,  0, 0, halfLen,     -halfWid, 0, 0,
+                0, thick, halfLen,   halfWid, thick, 0,  0, 0, halfLen,
+                halfWid, thick, 0,   halfWid, 0, 0,      0, 0, halfLen
+            ]);
+            nGeo.setAttribute('position', new THREE.BufferAttribute(nVerts, 3));
+            nGeo.computeVertexNormals();
+            const nMesh = new THREE.Mesh(nGeo, new THREE.MeshBasicMaterial({ color: 0xff1111, side: THREE.DoubleSide }));
+
+            const sGeo = new THREE.BufferGeometry();
+            const sVerts = new Float32Array([
+                0, thick, -halfLen,  halfWid, thick, 0, -halfWid, thick, 0,
+                0, 0, -halfLen,     -halfWid, 0, 0,      halfWid, 0, 0,
+                0, thick, -halfLen, -halfWid, thick, 0,  0, 0, -halfLen,
+                -halfWid, thick, 0, -halfWid, 0, 0,      0, 0, -halfLen,
+                0, thick, -halfLen,  0, 0, -halfLen,     halfWid, thick, 0,
+                halfWid, thick, 0,   0, 0, -halfLen,     halfWid, 0, 0
+            ]);
+            sGeo.setAttribute('position', new THREE.BufferAttribute(sVerts, 3));
+            sGeo.computeVertexNormals();
+            const sMesh = new THREE.Mesh(sGeo, new THREE.MeshBasicMaterial({ color: 0x0033ff, side: THREE.DoubleSide }));
+
+            group.add(nMesh);
+            group.add(sMesh);
+            return group;
+        }
+
+        function createExtrudedShapePrisma(pts2D, height, material) {
+            const shape = new THREE.Shape();
+            shape.moveTo(pts2D[0][0], pts2D[0][1]);
+            for (let i = 1; i < pts2D.length; i++) {
+                shape.lineTo(pts2D[i][0], pts2D[i][1]);
+            }
+            shape.closePath();
+
+            const extrudeGeo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+            extrudeGeo.rotateX(Math.PI / 2);
+            extrudeGeo.translate(0, height, 0);
+            return new THREE.Mesh(extrudeGeo, material);
+        }
+
+        // 초록 평면 위 자기장 방향 화살표 (파란색 꼬리 + 빨간색 화살촉, 기존 대비 길이 1.5배 연장: -0.69 ~ +0.75)
+        function createFieldArrowMesh(scale = 0.88) {
+            const group = new THREE.Group();
+            const height = 0.05;
+
+            const bluePts = [
+                [-0.055 * scale, -0.69 * scale],
+                [ 0.055 * scale, -0.69 * scale],
+                [ 0.055 * scale,  0.03 * scale],
+                [-0.055 * scale,  0.03 * scale]
+            ];
+            const blueShaft = createExtrudedShapePrisma(bluePts, height, new THREE.MeshBasicMaterial({ color: 0x1133ff, side: THREE.DoubleSide }));
+            group.add(blueShaft);
+
+            const redPts = [
+                [-0.055 * scale, 0.03 * scale],
+                [ 0.055 * scale, 0.03 * scale],
+                [ 0.055 * scale, 0.33 * scale],
+                [ 0.22 * scale,  0.135 * scale],
+                [ 0.28 * scale,  0.225 * scale],
+                [ 0.00 * scale,  0.75 * scale],
+                [-0.28 * scale,  0.225 * scale],
+                [-0.22 * scale,  0.135 * scale],
+                [-0.055 * scale, 0.33 * scale]
+            ];
+            const redHead = createExtrudedShapePrisma(redPts, height + 0.004, new THREE.MeshBasicMaterial({ color: 0xff1111, side: THREE.DoubleSide }));
+            group.add(redHead);
+
+            return group;
+        }
+
+        function createIronFilingMesh() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            const offsets = [
+                { x: 0, z: 0, len: 0.52 },
+                { x: 0.11, z: 0.09, len: 0.36 },
+                { x: -0.11, z: -0.07, len: 0.40 }
+            ];
+            offsets.forEach(o => {
+                const geo = new THREE.BoxGeometry(0.042, 0.028, o.len);
+                const m = new THREE.Mesh(geo, mat);
+                m.position.set(o.x, 0.02, o.z);
+                group.add(m);
+            });
+            return group;
+        }
+
+        function addSingleIndicatorPoint(x, z, scale = 1.0) {
+            const holder = new THREE.Group();
+            holder.position.set(x, 0, z);
+
+            const arrowMesh = createFieldArrowMesh(0.88 * scale);
+            const compassMesh = createDiamondNeedleMesh(0.76 * scale);
+            const filingMesh = createIronFilingMesh();
+
+            holder.add(arrowMesh);
+            holder.add(compassMesh);
+            holder.add(filingMesh);
+
+            fieldIndicatorsGroup.add(holder);
+            indicatorItems.push({ holder, arrowMesh, compassMesh, filingMesh, x, z });
+        }
+
+        function rebuildFieldGridPositions() {
+            while (fieldIndicatorsGroup.children.length > 0) {
+                fieldIndicatorsGroup.remove(fieldIndicatorsGroup.children[0]);
+            }
+            indicatorItems.length = 0;
+
+            const loopHoles = getCoilLoopHoles();
+            const { cx, numLoops, pitch } = getCoilLoopsParameters();
+            const occupied = [];
+
+            if (!state.isMagnetMode) {
+                const ringR = 1.12;
+                const numRingPts = 8;
+                for (let k = 0; k < loopHoles.length; k++) {
+                    const lh = loopHoles[k];
+                    const centers = [
+                        { x: lh.xLeft, z: lh.zLeft },
+                        { x: lh.xRight, z: lh.zRight }
+                    ];
+                    centers.forEach(c => {
+                        for (let i = 0; i < numRingPts; i++) {
+                            const ang = (i / numRingPts) * Math.PI * 2;
+                            const px = c.x + ringR * Math.cos(ang);
+                            const pz = c.z + ringR * Math.sin(ang);
+                            addSingleIndicatorPoint(px, pz, 0.90);
+                            occupied.push({ x: px, z: pz });
+                        }
+                    });
+                }
+            }
+
+            const cols = 13;
+            const rows = 15;
+            const spanX = BOARD_WIDTH - 2.2;
+            const spanZ = BOARD_DEPTH - 2.2;
+            const halfMagZ = Math.max(2.3, (numLoops - 1) * pitch * 0.5 + 1.4);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = -spanX / 2 + (c / (cols - 1)) * spanX;
+                    const z = -spanZ / 2 + (r / (rows - 1)) * spanZ;
+
+                    let tooClose = false;
+                    if (!state.isMagnetMode) {
+                        for (let k = 0; k < loopHoles.length; k++) {
+                            const lh = loopHoles[k];
+                            if (Math.hypot(x - lh.xLeft, z - lh.zLeft) < 1.52 ||
+                                Math.hypot(x - lh.xRight, z - lh.zRight) < 1.52) {
+                                tooClose = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        if (Math.abs(x - cx) < 1.55 && Math.abs(z) < halfMagZ) {
+                            tooClose = true;
+                        }
+                    }
+
+                    if (!tooClose) {
+                        for (let i = 0; i < occupied.length; i++) {
+                            if (Math.hypot(x - occupied[i].x, z - occupied[i].z) < 0.75) {
+                                tooClose = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!tooClose) {
+                        addSingleIndicatorPoint(x, z, 0.95);
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 9. 드래그 가능한 큰 나침반 (Big Compass)
+        // ==========================================
+        const bigCompassGroup = new THREE.Group();
+        const caseGeo = new THREE.CylinderGeometry(1.15, 1.15, 0.14, 36);
+        const caseMesh = new THREE.Mesh(caseGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        caseMesh.position.y = 0.07;
+        bigCompassGroup.add(caseMesh);
+
+        const caseRimGeo = new THREE.RingGeometry(1.07, 1.15, 36);
+        caseRimGeo.rotateX(-Math.PI / 2);
+        const caseRim = new THREE.Mesh(caseRimGeo, new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide }));
+        caseRim.position.y = 0.145;
+        bigCompassGroup.add(caseRim);
+
+        const bigNeedle = createDiamondNeedleMesh(1.6);
+        bigNeedle.position.y = 0.15;
+        bigCompassGroup.add(bigNeedle);
+
+        const pivotMesh = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+        pivotMesh.position.y = 0.22;
+        bigCompassGroup.add(pivotMesh);
+
+        bigCompassGroup.position.copy(state.bigCompassPos);
+        boardGroup.add(bigCompassGroup);
+
+        // ==========================================
+        // 10. 진짜 3D 입체 오른손 법칙 모델 (createVolumetric3DRightHand)
+        //     - 어느 각도에서 돌려 보아도 3차원 볼륨감이 살아있는 입체 손목·손바닥·엄지·네 손가락 조형
+        //     - 흰 테두리가 있는 8개의 초록색 블록 화살표 고리 포함
+        // ==========================================
+        const rightHandsGroup = new THREE.Group();
+        boardGroup.add(rightHandsGroup);
+
+        function createAnatomical3DTube(curve, tubularSegments, radialSegments, radiusFn, scaleY = 0.88) {
+            const geo = new THREE.TubeGeometry(curve, tubularSegments, 1.0, radialSegments, false);
+            const pos = geo.attributes.position;
+            const norm = geo.attributes.normal;
+            const center = new THREE.Vector3();
+            const n = new THREE.Vector3();
+            const v = new THREE.Vector3();
+
+            for (let i = 0; i <= tubularSegments; i++) {
+                const u = i / tubularSegments;
+                curve.getPointAt(u, center);
+                const r = radiusFn(u);
+                for (let j = 0; j <= radialSegments; j++) {
+                    const idx = i * (radialSegments + 1) + j;
+                    n.fromBufferAttribute(norm, idx).normalize();
+                    v.copy(center).addScaledVector(n, r);
+                    v.y = center.y + (v.y - center.y) * scaleY;
+                    pos.setXYZ(idx, v.x, v.y, v.z);
+                }
+            }
+            geo.computeVertexNormals();
+            return geo;
+        }
+
+        function createSingleGreenBlockArrow() {
+            const g = new THREE.Group();
+            const s = 0.82;
+            const arrowPts = [
+                [-0.30 * s, -0.09 * s],
+                [ 0.04 * s, -0.09 * s],
+                [ 0.04 * s, -0.21 * s],
+                [ 0.34 * s,  0.00 * s],
+                [ 0.04 * s,  0.21 * s],
+                [ 0.04 * s,  0.09 * s],
+                [-0.30 * s,  0.09 * s]
+            ];
+
+            const bPad = 0.038 * s;
+            const borderPts = [
+                [-0.30 * s - bPad, -0.09 * s - bPad],
+                [ 0.04 * s - bPad, -0.09 * s - bPad],
+                [ 0.04 * s - bPad, -0.21 * s - bPad * 1.3],
+                [ 0.34 * s + bPad * 1.4,  0.00 * s],
+                [ 0.04 * s - bPad,  0.21 * s + bPad * 1.3],
+                [ 0.04 * s - bPad,  0.09 * s + bPad],
+                [-0.30 * s - bPad,  0.09 * s + bPad]
+            ];
+
+            function makeShape(pts) {
+                const sh = new THREE.Shape();
+                sh.moveTo(pts[0][0], pts[0][1]);
+                for (let i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+                sh.closePath();
+                return sh;
+            }
+
+            const borderGeo = new THREE.ExtrudeGeometry(makeShape(borderPts), {
+                depth: 0.06,
+                bevelEnabled: false
+            });
+            borderGeo.translate(0, 0, -0.03);
+            const borderMesh = new THREE.Mesh(borderGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            g.add(borderMesh);
+
+            const greenGeo = new THREE.ExtrudeGeometry(makeShape(arrowPts), {
+                depth: 0.076,
+                bevelEnabled: false
+            });
+            greenGeo.translate(0, 0, -0.038);
+            const greenMesh = new THREE.Mesh(greenGeo, new THREE.MeshBasicMaterial({ color: 0x0c8a12 }));
+            g.add(greenMesh);
+
+            return g;
+        }
+
+        function createGreenFieldArrowsRing() {
+            const ringGroup = new THREE.Group();
+            const numArrows = 8;
+            const orbitPts = [];
+            const samples = 64;
+            for (let i = 0; i <= samples; i++) {
+                const ang = (i / samples) * Math.PI * 2;
+                const x = -0.05 - 1.22 * Math.cos(ang);
+                const z = 0.88 * Math.sin(ang);
+                const y = 0.02 + 0.44 * Math.cos(ang) - 0.32 * Math.sin(ang);
+                orbitPts.push(new THREE.Vector3(x, y, z));
+            }
+            const orbitCurve = new THREE.CatmullRomCurve3(orbitPts, true);
+
+            for (let k = 0; k < numArrows; k++) {
+                const u = (k + 0.08) / numArrows;
+                const pos = orbitCurve.getPointAt(u);
+                const tan = orbitCurve.getTangentAt(u).normalize();
+
+                const arrow = createSingleGreenBlockArrow();
+                arrow.position.copy(pos);
+
+                const outward = new THREE.Vector3(pos.x * 0.25, 0.15, pos.z >= 0 ? 1 : -1).normalize();
+                const upY = new THREE.Vector3().crossVectors(outward, tan).normalize();
+                const corrZ = new THREE.Vector3().crossVectors(tan, upY).normalize();
+
+                const rotMat = new THREE.Matrix4().makeBasis(tan, upY, corrZ);
+                arrow.quaternion.setFromRotationMatrix(rotMat);
+                ringGroup.add(arrow);
+            }
+
+            return ringGroup;
+        }
+
+        function createVolumetric3DRightHand() {
+            const wrapper = new THREE.Group();
+            const handRoot = new THREE.Group();
+            wrapper.add(handRoot);
+
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xf6c690 });
+            const nailMat = new THREE.MeshLambertMaterial({ color: 0xfde7d0 });
+            const outlineMat = new THREE.MeshBasicMaterial({ color: 0x5c432c, side: THREE.BackSide });
+            const creaseMat = new THREE.MeshBasicMaterial({ color: 0x6e4f35 });
+
+            function addVolumetricPart(parent, geo, mat, outScale = 1.07) {
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.renderOrder = 22;
+                parent.add(mesh);
+
+                const outMesh = new THREE.Mesh(geo.clone(), outlineMat);
+                outMesh.scale.set(outScale, outScale, outScale);
+                outMesh.renderOrder = 21;
+                mesh.add(outMesh);
+                return mesh;
+            }
+
+            // 1. 3D 입체 손목 및 손등/손바닥 코어 (둥근 타원형 단면의 3D 볼륨 튜브)
+            const wristPalmCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-2.35,  0.34, -0.08),
+                new THREE.Vector3(-1.60,  0.14,  0.08),
+                new THREE.Vector3(-0.92, -0.06,  0.28),
+                new THREE.Vector3(-0.32, -0.34,  0.40)
+            ]);
+            const wristPalmGeo = createAnatomical3DTube(wristPalmCurve, 28, 20, (u) => {
+                if (u < 0.35) return 0.50 + u * 0.22;
+                return 0.58 + Math.sin((u - 0.35) * Math.PI) * 0.14;
+            }, 1.25);
+            addVolumetricPart(handRoot, wristPalmGeo, skinMat, 1.05);
+
+            // 손목 절단면 둥근 캡
+            const wristCapGeo = new THREE.SphereGeometry(0.50, 18, 14);
+            wristCapGeo.scale(0.55, 1.22, 0.92);
+            const wristCap = addVolumetricPart(handRoot, wristCapGeo, skinMat, 1.06);
+            wristCap.position.set(-2.35, 0.34, -0.08);
+            wristCap.rotation.z = -0.22;
+
+            // 손바닥 아래쪽 볼륨 (소지구: 새끼손가락 쪽 두툼한 손날)
+            const hypothenarCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-1.45, -0.18, 0.14),
+                new THREE.Vector3(-0.78, -0.58, 0.34),
+                new THREE.Vector3(-0.18, -0.88, 0.44)
+            ]);
+            const hypothenarGeo = createAnatomical3DTube(hypothenarCurve, 20, 16, (u) => {
+                return 0.42 * (1.0 - 0.18 * u);
+            }, 1.12);
+            addVolumetricPart(handRoot, hypothenarGeo, skinMat, 1.05);
+
+            // 2. 엄지두덩(모지구) 및 전류 방향(+Y)으로 곧게 뻗은 3D 입체 엄지손가락
+            const thumbCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-1.05,  0.30, 0.24),
+                new THREE.Vector3(-0.68,  0.76, 0.34),
+                new THREE.Vector3(-0.42,  1.24, 0.32),
+                new THREE.Vector3(-0.24,  1.66, 0.24),
+                new THREE.Vector3(-0.12,  1.92, 0.18)
+            ]);
+            const thumbGeo = createAnatomical3DTube(thumbCurve, 32, 18, (u) => {
+                if (u < 0.30) return 0.40 - u * 0.26;
+                if (u < 0.78) return 0.29 - (u - 0.30) * 0.08;
+                const t = (u - 0.78) / 0.22;
+                return 0.25 * Math.sqrt(Math.max(0.25, 1.0 - t * 0.65));
+            }, 0.96);
+            addVolumetricPart(handRoot, thumbGeo, skinMat, 1.06);
+
+            // 엄지 끝 둥근 3D 캡
+            const thumbTipGeo = new THREE.SphereGeometry(0.21, 16, 14);
+            thumbTipGeo.scale(0.92, 1.15, 0.88);
+            const thumbTip = addVolumetricPart(handRoot, thumbTipGeo, skinMat, 1.08);
+            thumbTip.position.set(-0.12, 1.92, 0.18);
+            thumbTip.rotation.z = -0.28;
+
+            // 엄지 3D 입체 손톱
+            const thumbNailGeo = new THREE.SphereGeometry(0.14, 14, 12);
+            thumbNailGeo.scale(0.55, 1.18, 0.85);
+            const thumbNail = new THREE.Mesh(thumbNailGeo, nailMat);
+            thumbNail.position.set(-0.24, 1.78, 0.26);
+            thumbNail.rotation.set(0.15, 0.25, -0.32);
+            thumbNail.renderOrder = 24;
+            handRoot.add(thumbNail);
+
+            // 엄지 관절 주름 링
+            const thumbCreaseGeo = new THREE.TorusGeometry(0.245, 0.018, 8, 16, Math.PI * 0.85);
+            const thumbCrease = new THREE.Mesh(thumbCreaseGeo, creaseMat);
+            thumbCrease.position.set(-0.34, 1.38, 0.30);
+            thumbCrease.rotation.set(Math.PI * 0.45, -0.25, -0.35);
+            thumbCrease.renderOrder = 24;
+            handRoot.add(thumbCrease);
+
+            // 3. 도선(0, y, 0) 둘레를 3차원으로 둥글게 감아쥐는 네 손가락 (검지, 중지, 약지, 소지)
+            // 손등 앞쪽(+Z)에서 시작해 도선 오른쪽(+X)을 돌아 도선 뒤쪽(-Z)까지 실제로 감싸는 3D 곡선
+            const fingersSpec = [
+                { y0:  0.16, rBase: 0.235, reachX: 0.92, backX: 0.05 }, // 검지
+                { y0: -0.22, rBase: 0.248, reachX: 0.98, backX: 0.02 }, // 중지
+                { y0: -0.58, rBase: 0.232, reachX: 0.88, backX: 0.06 }, // 약지
+                { y0: -0.92, rBase: 0.205, reachX: 0.74, backX: 0.14 }  // 소지
+            ];
+
+            fingersSpec.forEach((f) => {
+                const fPts = [
+                    new THREE.Vector3(-0.46, f.y0 + 0.18,  0.42), // 중수지절(손등 너클)
+                    new THREE.Vector3( 0.26, f.y0 + 0.02,  0.58), // 첫째 마디 (도선 앞쪽 +Z)
+                    new THREE.Vector3( f.reachX, f.y0 - 0.16,  0.26), // 둘째 마디 (도선 우측 앞)
+                    new THREE.Vector3( f.reachX - 0.06, f.y0 - 0.26, -0.24), // 셋째 마디 (도선 우측 뒤)
+                    new THREE.Vector3( f.backX, f.y0 - 0.22, -0.46)  // 손가락 끝 (도선 뒤쪽 -Z 감아쥐기)
+                ];
+                const fCurve = new THREE.CatmullRomCurve3(fPts);
+                const fGeo = createAnatomical3DTube(fCurve, 32, 16, (u) => {
+                    let r = f.rBase * (1.0 - 0.14 * u);
+                    if (u > 0.30 && u < 0.65) r *= 1.04;
+                    if (u > 0.85) {
+                        const t = (u - 0.85) / 0.15;
+                        r *= Math.sqrt(Math.max(0.28, 1.0 - t * 0.55));
+                    }
+                    return r;
+                }, 0.90);
+                addVolumetricPart(handRoot, fGeo, skinMat, 1.07);
+
+                // 손가락 끝 3D 둥근 캡
+                const tipPt = fPts[fPts.length - 1];
+                const tipCapGeo = new THREE.SphereGeometry(f.rBase * 0.78, 14, 12);
+                const tipCap = addVolumetricPart(handRoot, tipCapGeo, skinMat, 1.08);
+                tipCap.position.copy(tipPt);
+
+                // 손가락 끝 3D 손톱
+                const fNailGeo = new THREE.SphereGeometry(f.rBase * 0.55, 12, 10);
+                fNailGeo.scale(1.1, 0.85, 0.45);
+                const fNail = new THREE.Mesh(fNailGeo, nailMat);
+                fNail.position.set(tipPt.x + 0.06, tipPt.y, tipPt.z - f.rBase * 0.65);
+                fNail.rotation.y = 0.35;
+                fNail.renderOrder = 24;
+                handRoot.add(fNail);
+
+                // 각 손가락 마디 관절의 3D 입체 주름 링 2개씩 배치
+                [0.34, 0.64].forEach(uJoint => {
+                    const jPos = fCurve.getPointAt(uJoint);
+                    const jTan = fCurve.getTangentAt(uJoint).normalize();
+                    const jRingGeo = new THREE.TorusGeometry(f.rBase * (1.0 - 0.12 * uJoint) * 0.94, 0.016, 8, 16);
+                    const jRing = new THREE.Mesh(jRingGeo, creaseMat);
+                    jRing.position.copy(jPos);
+                    jRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), jTan);
+                    jRing.renderOrder = 24;
+                    handRoot.add(jRing);
+                });
+            });
+
+            // 4. 네 손가락이 감아쥐는 둘레를 도는 흰 테두리 초록색 자기장 방향 화살표 3D 고리
+            const greenArrowsRing = createGreenFieldArrowsRing();
+            greenArrowsRing.renderOrder = 30;
+            handRoot.add(greenArrowsRing);
+
+            handRoot.scale.set(0.86, 0.86, 0.86);
+            return { wrapper, handRoot };
+        }
+
+        const handLeftArch = createVolumetric3DRightHand();
+        const handRightArch = createVolumetric3DRightHand();
+
+        rightHandsGroup.add(handLeftArch.wrapper);
+        rightHandsGroup.add(handRightArch.wrapper);
+
+        function updateHandsTransform() {
+            const { R, cx } = getCoilLoopsParameters();
+            const loopHoles = getCoilLoopHoles();
+            const dir = state.currentDir;
+
+            const zFront = loopHoles.length > 0 ? loopHoles[0].zLeft : 0;
+            const zBack = loopHoles.length > 0 ? loopHoles[loopHoles.length - 1].zRight : 0;
+
+            const leftAngle = Math.PI * 0.83;
+            const leftX = cx + R * Math.cos(leftAngle);
+            const leftY = R * Math.sin(leftAngle);
+            const leftTangentAngleZ = -(Math.PI - leftAngle);
+
+            const rightAngle = Math.PI * 0.17;
+            const rightX = cx + R * Math.cos(rightAngle);
+            const rightY = R * Math.sin(rightAngle);
+            const rightTangentAngleZ = -(Math.PI - rightAngle);
+
+            handLeftArch.wrapper.position.set(leftX, leftY, zFront);
+            handRightArch.wrapper.position.set(rightX, rightY, zBack);
+
+            if (dir === 1) {
+                handLeftArch.wrapper.rotation.set(0, 0, leftTangentAngleZ);
+                handRightArch.wrapper.rotation.set(0, 0, rightTangentAngleZ);
+            } else {
+                handLeftArch.wrapper.rotation.set(0, Math.PI, -(leftTangentAngleZ + Math.PI));
+                handRightArch.wrapper.rotation.set(0, Math.PI, -(rightTangentAngleZ + Math.PI));
+            }
+        }
+
+        // ==========================================
+        // 11. 전체 시각 요소 상태 동기화
+        // ==========================================
+        function updateSimulationVisuals() {
+            rightHandsGroup.visible = state.showRightHand && !state.isMagnetMode;
+            belowBoardArrowsGroup.visible = (!state.isMagnetMode) && (state.eyeElevationDeg < 0);
+            belowWireGroup.visible = (!state.isMagnetMode) && (state.eyeElevationDeg < 0);
+
+            const isFieldLineTab = (state.displayMode === 3);
+            fieldIndicatorsGroup.visible = !isFieldLineTab;
+            fieldLinesGroup.visible = isFieldLineTab;
+
+            if (isFieldLineTab) {
+                updateFieldLineSubGroupsVisibility();
+            } else {
+                indicatorItems.forEach(item => {
+                    const distBig = Math.hypot(item.x - bigCompassGroup.position.x, item.z - bigCompassGroup.position.z);
+                    if (distBig < 1.28) {
+                        item.holder.visible = false;
+                        return;
+                    }
+                    item.holder.visible = true;
+
+                    item.arrowMesh.visible = (state.displayMode === 0);
+                    item.compassMesh.visible = (state.displayMode === 1);
+                    item.filingMesh.visible = (state.displayMode === 2);
+
+                    const bVec = computeMagneticFieldVector2D(item.x, item.z);
+                    item.holder.rotation.y = Math.atan2(bVec.x, bVec.y);
+                });
+            }
+
+            const bigB = computeMagneticFieldVector2D(bigCompassGroup.position.x, bigCompassGroup.position.z);
+            bigNeedle.rotation.y = Math.atan2(bigB.x, bigB.y);
+        }
+
+        function updateCameraAndBoardAngles() {
+            const elevRad = THREE.MathUtils.degToRad(state.eyeElevationDeg);
+            const dist = 31.0;
+
+            camera.position.set(
+                experimentRoot.position.x,
+                experimentRoot.position.y + dist * Math.sin(elevRad),
+                experimentRoot.position.z + dist * Math.cos(elevRad)
+            );
+            camera.lookAt(
+                experimentRoot.position.x,
+                experimentRoot.position.y + 0.2,
+                0
+            );
+
+            boardGroup.rotation.y = THREE.MathUtils.degToRad(state.boardAzimuthDeg);
+            const azSlider = document.getElementById('azimuth-slider');
+            if (azSlider) azSlider.value = Math.round(state.boardAzimuthDeg);
+
+            updateSimulationVisuals();
+        }
+
+        // ==========================================
+        // 12. 2D 오버레이 렌더링 (눈 아이콘 + 확대 점선 + 미니 초록판 + 스위치/건전지)
+        // ==========================================
+        const overlayCanvas = document.getElementById('overlay-2d');
+        const ctx2d = overlayCanvas.getContext('2d');
+        const circuitBoxEl = document.getElementById('circuit-box');
+
+        const uiRegions = {
+            eyeBox: { x: 0, y: 0, w: 54, h: 38 },
+            switchBox: { x: 0, y: 0, w: 58, h: 30 },
+            batteryBox: { x: 0, y: 0, w: 58, h: 30 }
+        };
+
+        function project3DTo2D(vec3World) {
+            const v = vec3World.clone().project(camera);
+            return {
+                x: (v.x * 0.5 + 0.5) * overlayCanvas.width,
+                y: (-(v.y * 0.5) + 0.5) * overlayCanvas.height
+            };
+        }
+
+        function drawEyeIcon(ctx, cx, cy) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            ctx.roundRect(-23, -15, 46, 30, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(-12, 0);
+            ctx.quadraticCurveTo(0, -9, 12, 0);
+            ctx.quadraticCurveTo(0, 9, -12, 0);
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(0, 0, 4.0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-1.2, -1.2, 1.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawMiniCompass2D(ctx, x, y, radius, angleRad) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.rotate(angleRad);
+            ctx.fillStyle = '#ef2323';
+            ctx.beginPath();
+            ctx.moveTo(0, -radius * 0.82);
+            ctx.lineTo(radius * 0.36, 0);
+            ctx.lineTo(-radius * 0.36, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#2563eb';
+            ctx.beginPath();
+            ctx.moveTo(0, radius * 0.82);
+            ctx.lineTo(radius * 0.36, 0);
+            ctx.lineTo(-radius * 0.36, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function render2DOverlay() {
+            ctx2d.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            const W = overlayCanvas.width;
+            const panelRect = rightPanel.getBoundingClientRect();
+            const isPanelCollapsed = rightPanel.classList.contains('collapsed');
+
+            const trackX = isPanelCollapsed ? (W - 42) : (panelRect.left - 38);
+            const trackTop = 60;
+            const trackBottom = 220;
+            state.eyeTrackRange = { x: trackX, topY: trackTop, bottomY: trackBottom };
+
+            ctx2d.fillStyle = '#1e3a8a';
+            ctx2d.font = 'bold 11px Malgun Gothic';
+            ctx2d.textAlign = 'center';
+            ctx2d.fillText('위 90°', trackX, trackTop - 10);
+            ctx2d.fillText('아래', trackX, trackBottom + 15);
+
+            ctx2d.strokeStyle = '#93c5fd';
+            ctx2d.lineWidth = 2.5;
+            ctx2d.setLineDash([4, 4]);
+            ctx2d.beginPath();
+            ctx2d.moveTo(trackX, trackTop);
+            ctx2d.lineTo(trackX, trackBottom);
+            ctx2d.stroke();
+            ctx2d.setLineDash([]);
+
+            const normT = (88 - state.eyeElevationDeg) / (88 - (-65));
+            const eyeY = trackTop + normT * (trackBottom - trackTop);
+
+            uiRegions.eyeBox = { x: trackX - 24, y: eyeY - 16, w: 48, h: 32 };
+
+            if (!isPanelCollapsed) {
+                const cRect = circuitBoxEl.getBoundingClientRect();
+                const cx = cRect.left + cRect.width * 0.5;
+                const topY = cRect.top;
+                const miniBoardY = topY + 39;
+
+                const topRightCorner3D = new THREE.Vector3(BOARD_WIDTH / 2, 0, -BOARD_DEPTH / 2);
+                const bottomRightCorner3D = new THREE.Vector3(BOARD_WIDTH / 2, 0, BOARD_DEPTH / 2);
+                boardGroup.localToWorld(topRightCorner3D);
+                boardGroup.localToWorld(bottomRightCorner3D);
+                const pTop = project3DTo2D(topRightCorner3D);
+                const pBot = project3DTo2D(bottomRightCorner3D);
+
+                ctx2d.save();
+                ctx2d.setLineDash([4, 4]);
+                ctx2d.strokeStyle = 'rgba(234, 88, 12, 0.55)';
+                ctx2d.lineWidth = 1.4;
+                ctx2d.beginPath();
+                ctx2d.moveTo(cx - 34, miniBoardY - 18);
+                ctx2d.lineTo(pTop.x, pTop.y);
+                ctx2d.moveTo(cx - 34, miniBoardY + 16);
+                ctx2d.lineTo(pBot.x, pBot.y);
+                ctx2d.stroke();
+                ctx2d.restore();
+
+                ctx2d.fillStyle = '#475569';
+                ctx2d.font = 'bold 9.5px Malgun Gothic';
+                ctx2d.textAlign = 'left';
+                ctx2d.fillText('전류 회로도 (스위치·건전지 클릭)', cRect.left + 7, topY + 13);
+
+                ctx2d.fillStyle = '#ea580c';
+                ctx2d.textAlign = 'right';
+                ctx2d.fillText('확대 관찰 영역', cRect.right - 7, topY + 13);
+
+                ctx2d.save();
+                ctx2d.strokeStyle = '#ea580c';
+                ctx2d.lineWidth = 1.5;
+                ctx2d.setLineDash([4, 3]);
+                ctx2d.beginPath();
+                ctx2d.roundRect(cx - 34, miniBoardY - 18, 68, 34, 6);
+                ctx2d.stroke();
+                ctx2d.restore();
+
+                const wireBottomY = topY + 88;
+                const leftWireX = cRect.left + 24;
+                const rightWireX = cRect.right - 24;
+
+                ctx2d.strokeStyle = '#334155';
+                ctx2d.lineWidth = 2.0;
+                ctx2d.beginPath();
+                ctx2d.moveTo(cx - 14, miniBoardY + 2);
+                ctx2d.lineTo(cx - 14, miniBoardY + 20);
+                ctx2d.lineTo(leftWireX, miniBoardY + 20);
+                ctx2d.lineTo(leftWireX, wireBottomY);
+                ctx2d.lineTo(cx - 50, wireBottomY);
+
+                ctx2d.moveTo(cx + 14, miniBoardY + 2);
+                ctx2d.lineTo(cx + 14, miniBoardY + 20);
+                ctx2d.lineTo(rightWireX, miniBoardY + 20);
+                ctx2d.lineTo(rightWireX, wireBottomY);
+                ctx2d.lineTo(cx + 58, wireBottomY);
+
+                ctx2d.moveTo(cx - 4, wireBottomY);
+                ctx2d.lineTo(cx + 10, wireBottomY);
+                ctx2d.stroke();
+
+                ctx2d.fillStyle = '#16d916';
+                ctx2d.strokeStyle = '#14532d';
+                ctx2d.lineWidth = 1.3;
+                ctx2d.beginPath();
+                ctx2d.moveTo(cx - 38, miniBoardY - 7);
+                ctx2d.lineTo(cx + 38, miniBoardY - 7);
+                ctx2d.lineTo(cx + 46, miniBoardY + 8);
+                ctx2d.lineTo(cx - 46, miniBoardY + 8);
+                ctx2d.closePath();
+                ctx2d.fill();
+                ctx2d.stroke();
+
+                [-14, 14].forEach(dx => {
+                    ctx2d.fillStyle = '#e2e8f0';
+                    ctx2d.strokeStyle = '#334155';
+                    ctx2d.lineWidth = 1.0;
+                    ctx2d.beginPath();
+                    ctx2d.arc(cx + dx, miniBoardY + 2, 3.2, 0, Math.PI * 2);
+                    ctx2d.fill();
+                    ctx2d.stroke();
+
+                    ctx2d.fillStyle = '#1e293b';
+                    ctx2d.beginPath();
+                    ctx2d.arc(cx + dx, miniBoardY + 2, 1.5, 0, Math.PI * 2);
+                    ctx2d.fill();
+                });
+
+                ctx2d.strokeStyle = '#78350f';
+                ctx2d.lineWidth = 3.2;
+                ctx2d.lineCap = 'round';
+                ctx2d.beginPath();
+                ctx2d.arc(cx, miniBoardY + 2, 14, Math.PI, 0, false);
+                ctx2d.stroke();
+
+                const cDir = state.powerOn ? state.currentDir : 1;
+                drawMiniCompass2D(ctx2d, cx - 22, miniBoardY - 1, 4.2, cDir === 1 ? -0.7 : 2.4);
+                drawMiniCompass2D(ctx2d, cx,      miniBoardY + 3, 4.4, cDir === 1 ? 0.0 : Math.PI);
+                drawMiniCompass2D(ctx2d, cx + 22, miniBoardY - 1, 4.2, cDir === 1 ? -0.7 : 2.4);
+
+                const swX = cx - 50;
+                const swW = 46;
+                const swH = 22;
+                uiRegions.switchBox = { x: swX - 4, y: wireBottomY - 14, w: swW + 8, h: 30 };
+
+                ctx2d.fillStyle = '#ffffff';
+                ctx2d.strokeStyle = '#475569';
+                ctx2d.lineWidth = 1.3;
+                ctx2d.beginPath();
+                ctx2d.roundRect(swX, wireBottomY - 11, swW, swH, 5);
+                ctx2d.fill();
+                ctx2d.stroke();
+
+                ctx2d.strokeStyle = '#334155';
+                ctx2d.lineWidth = 2.6;
+                ctx2d.beginPath();
+                ctx2d.moveTo(swX + 9, wireBottomY);
+                if (state.powerOn) {
+                    ctx2d.lineTo(swX + swW - 9, wireBottomY);
+                } else {
+                    ctx2d.lineTo(swX + swW - 12, wireBottomY - 8);
+                }
+                ctx2d.stroke();
+
+                ctx2d.fillStyle = '#334155';
+                ctx2d.beginPath();
+                ctx2d.arc(swX + 9, wireBottomY, 2.6, 0, Math.PI * 2);
+                ctx2d.arc(swX + swW - 9, wireBottomY, 2.6, 0, Math.PI * 2);
+                ctx2d.fill();
+
+                ctx2d.fillStyle = state.powerOn ? '#15803d' : '#dc2626';
+                ctx2d.font = 'bold 8.5px Malgun Gothic';
+                ctx2d.textAlign = 'center';
+                ctx2d.fillText(state.powerOn ? '스위치 닫힘 (ON)' : '스위치 열림 (OFF)', swX + swW / 2, wireBottomY + 20);
+
+                const batX = cx + 10;
+                const batW = 48;
+                const batH = 18;
+                const batY = wireBottomY - batH / 2;
+                uiRegions.batteryBox = { x: batX - 4, y: batY - 5, w: batW + 8, h: batH + 14 };
+
+                ctx2d.fillStyle = '#ffffff';
+                ctx2d.strokeStyle = '#2563eb';
+                ctx2d.lineWidth = 1.3;
+                ctx2d.beginPath();
+                ctx2d.roundRect(batX - 2, batY - 3, batW + 4, batH + 6, 5);
+                ctx2d.fill();
+                ctx2d.stroke();
+
+                const grad = ctx2d.createLinearGradient(batX + 5, batY, batX + 5, batY + batH);
+                grad.addColorStop(0, '#93c5fd');
+                grad.addColorStop(0.5, '#eff6ff');
+                grad.addColorStop(1, '#3b82f6');
+                ctx2d.fillStyle = grad;
+                ctx2d.fillRect(batX + 4, batY, batW - 8, batH);
+                ctx2d.strokeStyle = '#1e3a8a';
+                ctx2d.lineWidth = 1.1;
+                ctx2d.strokeRect(batX + 4, batY, batW - 8, batH);
+
+                ctx2d.fillStyle = '#14b8a6';
+                if (state.currentDir === 1) {
+                    ctx2d.fillRect(batX + 4, batY, 10, batH);
+                    ctx2d.fillStyle = '#cbd5e1';
+                    ctx2d.fillRect(batX, batY + 5, 4, batH - 10);
+                    ctx2d.strokeRect(batX, batY + 5, 4, batH - 10);
+                    ctx2d.fillStyle = '#0f172a';
+                    ctx2d.font = 'bold 10px sans-serif';
+                    ctx2d.fillText('+', batX + 9, batY + 12.5);
+                    ctx2d.fillText('-', batX + batW - 11, batY + 12);
+                } else {
+                    ctx2d.fillRect(batX + batW - 14, batY, 10, batH);
+                    ctx2d.fillStyle = '#cbd5e1';
+                    ctx2d.fillRect(batX + batW - 4, batY + 5, 4, batH - 10);
+                    ctx2d.strokeRect(batX + batW - 4, batY + 5, 4, batH - 10);
+                    ctx2d.fillStyle = '#0f172a';
+                    ctx2d.font = 'bold 10px sans-serif';
+                    ctx2d.fillText('-', batX + 11, batY + 12);
+                    ctx2d.fillText('+', batX + batW - 9, batY + 12.5);
+                }
+
+                ctx2d.fillStyle = '#1d4ed8';
+                ctx2d.font = 'bold 8.5px Malgun Gothic';
+                ctx2d.textAlign = 'center';
+                ctx2d.fillText('건전지 (극 변환)', batX + batW / 2, wireBottomY + 20);
+            }
+
+            drawEyeIcon(ctx2d, trackX, eyeY);
+        }
+
+        // ==========================================
+        // 13. UI 이벤트 및 마우스 드래그 / 마우스 휠 조작 핸들러 (드래그 바와 양방향 연동)
+        // ==========================================
+        const raycaster = new THREE.Raycaster();
+        const pointerNDC = new THREE.Vector2();
+        const boardPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.14);
+
+        let dragMode = null;
+        let dragStartClientX = 0;
+        let dragStartClientY = 0;
+        let dragStartAzimuth = 0;
+        let dragStartElevation = 0;
+
+        function insideBox(px, py, box) {
+            return px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h;
+        }
+
+        function updateUIPanelState() {
+            const badge = document.getElementById('mode-badge');
+            const strengthTxt = document.getElementById('strength-text');
+            const btnMagnet = document.getElementById('btn-toggle-magnet');
+            const subPanel = document.getElementById('fieldline-sub-panel');
+            const btnLineNear = document.getElementById('btn-line-near');
+
+            const strengthMultipliers = ['1.0', '1.2', '1.5', '1.7'];
+            strengthTxt.textContent = `코일 중심의 자기장 : 약 ${strengthMultipliers[state.coilTurns]} 배 (감은 수 0 기준)`;
+
+            if (state.isMagnetMode) {
+                badge.textContent = '막대자석 모드';
+                badge.style.background = '#dc2626';
+                btnMagnet.textContent = '🌀 코일로 되돌리기';
+                btnMagnet.classList.add('magnet-active');
+                btnLineNear.textContent = '자석 근처만 보기';
+            } else {
+                btnMagnet.textContent = '🧲 자석으로 바꾸기';
+                btnMagnet.classList.remove('magnet-active');
+                btnLineNear.textContent = '코일 근처만 보기';
+                if (state.coilTurns === 0) {
+                    badge.textContent = '원형 도선 (감은 수 0)';
+                    badge.style.background = '#4f46e5';
+                } else {
+                    badge.textContent = `솔레노이드 (감은 수 ${state.coilTurns})`;
+                    badge.style.background = '#5b21b6';
+                }
+            }
+
+            document.querySelectorAll('.mode-tab-btn').forEach(btn => {
+                const m = parseInt(btn.dataset.mode, 10);
+                btn.classList.toggle('active', m === state.displayMode);
+            });
+
+            if (state.displayMode === 3) {
+                subPanel.classList.add('visible');
+            } else {
+                subPanel.classList.remove('visible');
+            }
+
+            document.querySelectorAll('.sub-line-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.linemode === state.fieldLineSubMode);
+            });
+
+            const quickLinesBtn = document.getElementById('btn-quick-lines');
+            quickLinesBtn.classList.toggle('active', state.displayMode === 3);
+
+            const nextLabels = ['🧭 나침반 모양', '∷ 철가루 모양', '↗ 화살표 모양', '↗ 화살표 모양'];
+            document.getElementById('btn-quick-mode').textContent = nextLabels[state.displayMode];
+
+            document.getElementById('chk-right-hand').checked = state.showRightHand;
+        }
+
+        function setClientPointerNDC(clientX, clientY) {
+            pointerNDC.x = (clientX / window.innerWidth) * 2 - 1;
+            pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onPointerDown(e) {
+            if (e.target.closest('#top-bar') || e.target.closest('#usage-box') || e.target.closest('#bottom-bar')) {
+                return;
+            }
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            if (!rightPanel.classList.contains('collapsed')) {
+                if (insideBox(clientX, clientY, uiRegions.switchBox)) {
+                    state.powerOn = !state.powerOn;
+                    rebuildCurrentArrows();
+                    rebuildContinuousFieldLines();
+                    updateSimulationVisuals();
+                    return;
+                }
+                if (insideBox(clientX, clientY, uiRegions.batteryBox)) {
+                    state.currentDir *= -1;
+                    rebuildCurrentArrows();
+                    updateHandsTransform();
+                    updateBarMagnetMesh();
+                    rebuildContinuousFieldLines();
+                    updateSimulationVisuals();
+                    return;
+                }
+            }
+
+            if (e.target.closest('#right-panel')) return;
+
+            if (insideBox(clientX, clientY, uiRegions.eyeBox)) {
+                dragMode = 'eye';
+                return;
+            }
+
+            setClientPointerNDC(clientX, clientY);
+            raycaster.setFromCamera(pointerNDC, camera);
+
+            // 마우스 휠 버튼(가운데 버튼) 클릭 시에는 어디서든 즉시 시선/회전 조작 모드로 진입
+            if (e.button === 1) {
+                e.preventDefault();
+                dragMode = 'boardView';
+                dragStartClientX = clientX;
+                dragStartClientY = clientY;
+                dragStartAzimuth = state.boardAzimuthDeg;
+                dragStartElevation = state.eyeElevationDeg;
+                return;
+            }
+
+            const compassHits = raycaster.intersectObject(bigCompassGroup, true);
+            if (compassHits.length > 0) {
+                dragMode = 'compass';
+                return;
+            }
+
+            if (!state.isMagnetMode) {
+                const leftHoleHits = raycaster.intersectObject(leftHoleGroup, true);
+                if (leftHoleHits.length > 0) {
+                    dragMode = 'leftWire';
+                    return;
+                }
+            }
+
+            // 초록색 판 위에서 드래그하면 판 좌우 회전(하단 바 연동) 및 위아래 시선(오른쪽 눈 드래그 바 연동) 작동
+            const boardHits = raycaster.intersectObject(boardGroup, true);
+            if (boardHits.length > 0) {
+                dragMode = 'boardView';
+                dragStartClientX = clientX;
+                dragStartClientY = clientY;
+                dragStartAzimuth = state.boardAzimuthDeg;
+                dragStartElevation = state.eyeElevationDeg;
+                return;
+            }
+        }
+
+        function onPointerMove(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            if (!dragMode) {
+                if (
+                    insideBox(clientX, clientY, uiRegions.eyeBox) ||
+                    (!rightPanel.classList.contains('collapsed') && (
+                        insideBox(clientX, clientY, uiRegions.switchBox) ||
+                        insideBox(clientX, clientY, uiRegions.batteryBox)
+                    ))
+                ) {
+                    document.body.style.cursor = 'pointer';
+                    return;
+                }
+
+                setClientPointerNDC(clientX, clientY);
+                raycaster.setFromCamera(pointerNDC, camera);
+                const hits = raycaster.intersectObjects([bigCompassGroup, leftHoleGroup, boardMesh], true);
+                document.body.style.cursor = hits.length > 0 ? 'grab' : 'default';
+                return;
+            }
+
+            document.body.style.cursor = 'grabbing';
+
+            if (dragMode === 'eye') {
+                const { topY, bottomY } = state.eyeTrackRange;
+                const clampedY = Math.max(topY, Math.min(bottomY, clientY));
+                const norm = (clampedY - topY) / (bottomY - topY);
+                state.eyeElevationDeg = 88 - norm * (88 - (-65));
+                updateCameraAndBoardAngles();
+            } else if (dragMode === 'boardView') {
+                const dx = clientX - dragStartClientX;
+                const dy = clientY - dragStartClientY;
+                state.boardAzimuthDeg = Math.max(-85, Math.min(85, dragStartAzimuth + dx * 0.42));
+                state.eyeElevationDeg = Math.max(-65, Math.min(88, dragStartElevation + dy * 0.42));
+                updateCameraAndBoardAngles();
+            } else if (dragMode === 'compass') {
+                setClientPointerNDC(clientX, clientY);
+                raycaster.setFromCamera(pointerNDC, camera);
+                const intersectPt = new THREE.Vector3();
+                if (raycaster.ray.intersectPlane(boardPlane, intersectPt)) {
+                    boardGroup.worldToLocal(intersectPt);
+                    const limitX = BOARD_WIDTH / 2 - 1.3;
+                    const limitZ = BOARD_DEPTH / 2 - 1.3;
+                    bigCompassGroup.position.x = Math.max(-limitX, Math.min(limitX, intersectPt.x));
+                    bigCompassGroup.position.z = Math.max(-limitZ, Math.min(limitZ, intersectPt.z));
+                    updateSimulationVisuals();
+                }
+            } else if (dragMode === 'leftWire') {
+                setClientPointerNDC(clientX, clientY);
+                raycaster.setFromCamera(pointerNDC, camera);
+                const intersectPt = new THREE.Vector3();
+                if (raycaster.ray.intersectPlane(boardPlane, intersectPt)) {
+                    boardGroup.worldToLocal(intersectPt);
+                    const rightFixedX = state.wireCenterX + state.wireRadius;
+                    const newLeftX = Math.max(-7.6, Math.min(rightFixedX - 6.8, intersectPt.x));
+                    state.wireRadius = (rightFixedX - newLeftX) / 2;
+                    state.wireCenterX = (rightFixedX + newLeftX) / 2;
+                    rebuildWireGeometry();
+                    updateSimulationVisuals();
+                }
+            }
+        }
+
+        function onPointerUp() {
+            dragMode = null;
+            document.body.style.cursor = 'default';
+        }
+
+        // 초록색 판 위에서 마우스 휠을 굴려 상하 시선(눈 드래그 바) 또는 좌우 회전(하단 회전 바) 작동
+        function onMouseWheel(e) {
+            if (e.target.closest('#right-panel') || e.target.closest('#usage-box')) return;
+            e.preventDefault();
+
+            if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) {
+                const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                state.boardAzimuthDeg = Math.max(-85, Math.min(85, state.boardAzimuthDeg + delta * 0.12));
+            } else {
+                state.eyeElevationDeg = Math.max(-65, Math.min(88, state.eyeElevationDeg - e.deltaY * 0.12));
+            }
+            updateCameraAndBoardAngles();
+        }
+
+        window.addEventListener('mousedown', onPointerDown);
+        window.addEventListener('mousemove', onPointerMove);
+        window.addEventListener('mouseup', onPointerUp);
+        window.addEventListener('wheel', onMouseWheel, { passive: false });
+
+        window.addEventListener('touchstart', onPointerDown, { passive: true });
+        window.addEventListener('touchmove', onPointerMove, { passive: true });
+        window.addEventListener('touchend', onPointerUp);
+
+        document.querySelectorAll('.turn-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.turn-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.coilTurns = parseInt(btn.dataset.turns, 10);
+                state.isMagnetMode = false;
+                rebuildWireGeometry();
+                updateSimulationVisuals();
+                updateUIPanelState();
+            });
+        });
+
+        document.querySelectorAll('.mode-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.displayMode = parseInt(btn.dataset.mode, 10);
+                if (state.displayMode === 3 && !state.powerOn) {
+                    state.powerOn = true;
+                    rebuildCurrentArrows();
+                }
+                rebuildContinuousFieldLines();
+                updateSimulationVisuals();
+                updateUIPanelState();
+            });
+        });
+
+        document.querySelectorAll('.sub-line-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.fieldLineSubMode = btn.dataset.linemode;
+                updateFieldLineSubGroupsVisibility();
+                updateUIPanelState();
+            });
+        });
+
+        document.getElementById('chk-right-hand').addEventListener('change', (e) => {
+            state.showRightHand = e.target.checked;
+            if (state.showRightHand && state.isMagnetMode) {
+                state.isMagnetMode = false;
+                rebuildWireGeometry();
+            }
+            updateSimulationVisuals();
+            updateUIPanelState();
+        });
+
+        document.getElementById('btn-toggle-magnet').addEventListener('click', () => {
+            state.isMagnetMode = !state.isMagnetMode;
+            rebuildWireGeometry();
+            updateSimulationVisuals();
+            updateUIPanelState();
+        });
+
+        document.getElementById('azimuth-slider').addEventListener('input', (e) => {
+            state.boardAzimuthDeg = parseFloat(e.target.value);
+            updateCameraAndBoardAngles();
+        });
+
+        document.getElementById('btn-quick-lines').addEventListener('click', () => {
+            if (state.displayMode === 3) {
+                state.displayMode = 0;
+            } else {
+                state.displayMode = 3;
+                if (!state.powerOn) {
+                    state.powerOn = true;
+                    rebuildCurrentArrows();
+                }
+            }
+            rebuildContinuousFieldLines();
+            updateSimulationVisuals();
+            updateUIPanelState();
+        });
+
+        document.getElementById('btn-quick-mode').addEventListener('click', () => {
+            if (state.displayMode === 3) {
+                state.displayMode = 0;
+            } else {
+                state.displayMode = (state.displayMode + 1) % 3;
+            }
+            rebuildContinuousFieldLines();
+            updateSimulationVisuals();
+            updateUIPanelState();
+        });
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            overlayCanvas.width = window.innerWidth;
+            overlayCanvas.height = window.innerHeight;
+            updateCameraAndBoardAngles();
+        }
+
+        rebuildWireGeometry();
+        window.addEventListener('resize', onWindowResize);
+        onWindowResize();
+        updateUIPanelState();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+            render2DOverlay();
+        }
+        animate();
+    </script>
+</body>
+</html>
